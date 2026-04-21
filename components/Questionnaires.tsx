@@ -208,13 +208,13 @@ export const CtTab: React.FC<TabProps> = ({ data, onChange }) => (
     <div className="space-y-4">
         <div className="mb-6 p-6 bg-red-900/10 rounded-lg border border-red-500/30">
             <h3 className="text-xl font-bold text-red-400 mb-3 tracking-wide">Sfida e Minaccia (CT)</h3>
-            <p className="text-sm text-slate-300 mb-4">Leggi attentamente ogni affermazione ed indica quanto sei d'accordo su una scala da 1 (Per niente) a 5 (Moltissimo).</p>
-            <div className="text-xs font-mono text-red-300 grid grid-cols-5 gap-2">
-                <div>1 = Per niente</div><div>2 = Un po'</div><div>3 = Moderatamente</div><div>4 = Molto</div><div>5 = Moltissimo</div>
+            <p className="text-sm text-slate-300 mb-4">Leggi attentamente ogni affermazione ed indica quanto è vera per te su una scala da 1 a 7.</p>
+            <div className="text-xs font-mono text-red-300 grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div>1 = Per nulla vera per me</div><div>4 = Né vera né falsa</div><div>7 = Completamente vera per me</div>
             </div>
         </div>
         {CT_ITEMS.map((item, index) => (
-            <SliderItem key={index} label={item} value={data[index]} min={1} max={5} labels={["Per niente", "Un po'", "Mod.", "Molto", "Moltissimo"]} onChange={(val) => onChange(index, val)} />
+            <SliderItem key={index} label={item} value={data[index]} min={1} max={7} labels={["Per nulla vera", "2", "3", "Né vera né falsa", "5", "6", "Completamente vera"]} onChange={(val) => onChange(index, val)} />
         ))}
     </div>
 );

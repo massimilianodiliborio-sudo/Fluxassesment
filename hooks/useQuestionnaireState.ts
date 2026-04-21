@@ -14,7 +14,7 @@ const defaultCfq   = () => new Array(CFQ_ITEMS.length).fill(3);
 const defaultBnsss = () => new Array(BNSSS_ITEMS.length).fill(4);
 const defaultSeq   = () => new Array(SEQ_ITEMS.length).fill(2);
 const defaultMts   = () => new Array(MTS_ITEMS.length).fill(3);
-const defaultCt    = () => new Array(CT_ITEMS.length).fill(3);
+const defaultCt    = () => new Array(CT_ITEMS.length).fill(4);
 const defaultPesd  = () => new Array(PESD_ITEMS.length).fill(0);
 
 export const useQuestionnaireState = () => {
