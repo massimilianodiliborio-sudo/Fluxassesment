@@ -125,7 +125,11 @@ export const DashboardPage = () => {
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        const envPass = getEnvVar('VITE_ADMIN_PASSWORD') || 'admin';
+        const envPass = getEnvVar('VITE_ADMIN_PASSWORD');
+        if (!envPass) {
+            alert("⚠️ Errore di configurazione: password amministratore non impostata. Contatta l'amministratore.");
+            return;
+        }
         if (password === envPass) {
             setIsAuthenticated(true);
             fetchRecords();
