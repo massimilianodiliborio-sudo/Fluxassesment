@@ -24,7 +24,7 @@ const SUPABASE_URL = env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || "";
 
 // 3. PASSWORD DASHBOARD
-export const ADMIN_PASSWORD = env.VITE_ADMIN_PASSWORD || "MdleAdl010108";
+export const ADMIN_PASSWORD = env.VITE_ADMIN_PASSWORD || "";
 
 // ==============================================================================
 
