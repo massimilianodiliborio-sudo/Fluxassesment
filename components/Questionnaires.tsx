@@ -21,14 +21,16 @@ interface SliderItemProps {
     onChange: (val: number) => void;
 }
 
-const SliderItem: React.FC<SliderItemProps> = ({ label, value, min, max, labels, onChange }) => {
+const SliderItem: React.FC<SliderItemProps> = React.memo(({ label, value, min, max, labels, onChange }) => {
+    const labelId = React.useId();
     return (
         <div className="mb-8 p-6 bg-slate-900 rounded-xl shadow-lg border border-slate-800 hover:border-cyan-500/30 transition-all group">
-            <h4 className="text-md font-medium text-slate-200 mb-6 leading-relaxed group-hover:text-white transition-colors">{label}</h4>
-            
+            <h4 id={labelId} className="text-md font-medium text-slate-200 mb-6 leading-relaxed group-hover:text-white transition-colors">{label}</h4>
+
             <div className="relative mb-8">
                 <input
                     type="range"
+                    aria-labelledby={labelId}
                     min={min}
                     max={max}
                     value={value}
@@ -45,21 +47,21 @@ const SliderItem: React.FC<SliderItemProps> = ({ label, value, min, max, labels,
                 </div>
             </div>
 
-            <div className="flex justify-between items-start text-[10px] sm:text-xs text-slate-500 font-medium tracking-tight mt-2">
+            <div className="flex justify-between items-start text-[10px] sm:text-xs font-medium tracking-tight mt-2">
                 {labels.map((l, i) => (
-                    <div 
-                        key={i} 
-                        className={`text-center transition-all duration-300 w-16 ${
-                            value === min + i ? 'text-cyan-400 font-bold scale-110 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'hover:text-slate-300'
-                        }`}
+                    <button
+                        key={i}
+                        type="button"
                         onClick={() => onChange(min + i)}
-                        style={{ cursor: 'pointer' }}
+                        className={`text-center transition-all duration-300 w-16 bg-transparent border-0 cursor-pointer ${
+                            value === min + i ? 'text-cyan-400 font-bold scale-110 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'text-slate-500 hover:text-slate-300'
+                        }`}
                     >
                         {l}
-                    </div>
+                    </button>
                 ))}
             </div>
-            
+
             <div className="mt-4 text-center">
                  <span className="inline-block px-4 py-1.5 bg-slate-950 border border-slate-700 text-cyan-400 rounded-md font-mono font-bold text-sm shadow-inner">
                     Punteggio: <span className="text-white">{value}</span>
@@ -67,7 +69,8 @@ const SliderItem: React.FC<SliderItemProps> = ({ label, value, min, max, labels,
             </div>
         </div>
     );
-};
+});
+SliderItem.displayName = 'SliderItem';
 
 export const IppsTab: React.FC<TabProps> = ({ data, onChange }) => (
     <div className="space-y-4">
