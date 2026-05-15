@@ -8,7 +8,10 @@ import {
     CFQ_ITEMS, CFQ_SCALES,
     BNSSS_ITEMS, BNSSS_SCALES,
     SEQ_ITEMS, SEQ_SCALES,
-    MTS_ITEMS, CT_ITEMS
+    MTS_ITEMS, CT_ITEMS,
+    TEIQUE_ITEMS, TEIQUE_SCALES,
+    MAIA_ITEMS, MAIA_SCALES,
+    PASSION_ITEMS, PASSION_SCALES
 } from '../constants';
 import { TabProps } from '../types';
 
@@ -21,16 +24,14 @@ interface SliderItemProps {
     onChange: (val: number) => void;
 }
 
-const SliderItem: React.FC<SliderItemProps> = React.memo(({ label, value, min, max, labels, onChange }) => {
-    const labelId = React.useId();
+const SliderItem: React.FC<SliderItemProps> = ({ label, value, min, max, labels, onChange }) => {
     return (
         <div className="mb-8 p-6 bg-slate-900 rounded-xl shadow-lg border border-slate-800 hover:border-cyan-500/30 transition-all group">
-            <h4 id={labelId} className="text-md font-medium text-slate-200 mb-6 leading-relaxed group-hover:text-white transition-colors">{label}</h4>
-
+            <h4 className="text-md font-medium text-slate-200 mb-6 leading-relaxed group-hover:text-white transition-colors">{label}</h4>
+            
             <div className="relative mb-8">
                 <input
                     type="range"
-                    aria-labelledby={labelId}
                     min={min}
                     max={max}
                     value={value}
@@ -47,21 +48,21 @@ const SliderItem: React.FC<SliderItemProps> = React.memo(({ label, value, min, m
                 </div>
             </div>
 
-            <div className="flex justify-between items-start text-[10px] sm:text-xs font-medium tracking-tight mt-2">
+            <div className="flex justify-between items-start text-[10px] sm:text-xs text-slate-500 font-medium tracking-tight mt-2">
                 {labels.map((l, i) => (
-                    <button
-                        key={i}
-                        type="button"
-                        onClick={() => onChange(min + i)}
-                        className={`text-center transition-all duration-300 w-16 bg-transparent border-0 cursor-pointer ${
-                            value === min + i ? 'text-cyan-400 font-bold scale-110 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'text-slate-500 hover:text-slate-300'
+                    <div 
+                        key={i} 
+                        className={`text-center transition-all duration-300 w-16 ${
+                            value === min + i ? 'text-cyan-400 font-bold scale-110 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'hover:text-slate-300'
                         }`}
+                        onClick={() => onChange(min + i)}
+                        style={{ cursor: 'pointer' }}
                     >
                         {l}
-                    </button>
+                    </div>
                 ))}
             </div>
-
+            
             <div className="mt-4 text-center">
                  <span className="inline-block px-4 py-1.5 bg-slate-950 border border-slate-700 text-cyan-400 rounded-md font-mono font-bold text-sm shadow-inner">
                     Punteggio: <span className="text-white">{value}</span>
@@ -69,8 +70,7 @@ const SliderItem: React.FC<SliderItemProps> = React.memo(({ label, value, min, m
             </div>
         </div>
     );
-});
-SliderItem.displayName = 'SliderItem';
+};
 
 export const IppsTab: React.FC<TabProps> = ({ data, onChange }) => (
     <div className="space-y-4">
@@ -211,13 +211,59 @@ export const CtTab: React.FC<TabProps> = ({ data, onChange }) => (
     <div className="space-y-4">
         <div className="mb-6 p-6 bg-red-900/10 rounded-lg border border-red-500/30">
             <h3 className="text-xl font-bold text-red-400 mb-3 tracking-wide">Sfida e Minaccia (CT)</h3>
-            <p className="text-sm text-slate-300 mb-4">Leggi attentamente ogni affermazione ed indica quanto è vera per te su una scala da 1 a 7.</p>
-            <div className="text-xs font-mono text-red-300 grid grid-cols-2 md:grid-cols-4 gap-2">
-                <div>1 = Per nulla vera per me</div><div>4 = Né vera né falsa</div><div>7 = Completamente vera per me</div>
+            <p className="text-sm text-slate-300 mb-4">Leggi attentamente ogni affermazione ed indica quanto sei d'accordo su una scala da 1 (Per niente) a 5 (Moltissimo).</p>
+            <div className="text-xs font-mono text-red-300 grid grid-cols-5 gap-2">
+                <div>1 = Per niente</div><div>2 = Un po'</div><div>3 = Moderatamente</div><div>4 = Molto</div><div>5 = Moltissimo</div>
             </div>
         </div>
         {CT_ITEMS.map((item, index) => (
-            <SliderItem key={index} label={item} value={data[index]} min={1} max={7} labels={["Per nulla vera", "2", "3", "Né vera né falsa", "5", "6", "Completamente vera"]} onChange={(val) => onChange(index, val)} />
+            <SliderItem key={index} label={item} value={data[index]} min={1} max={5} labels={["Per niente", "Un po'", "Mod.", "Molto", "Moltissimo"]} onChange={(val) => onChange(index, val)} />
+        ))}
+    </div>
+);
+
+export const TeiqueTab: React.FC<TabProps> = ({ data, onChange }) => (
+    <div className="space-y-4">
+        <div className="mb-6 p-6 bg-indigo-900/10 rounded-lg border border-indigo-500/30">
+            <h3 className="text-xl font-bold text-indigo-400 mb-3 tracking-wide">TEIQue-SF (Intelligenza Emotiva)</h3>
+            <p className="text-sm text-slate-300 mb-4">Leggi ogni affermazione e scegli il numero che meglio riflette il tuo livello di accordo.</p>
+            <div className="text-xs font-mono text-indigo-300 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {TEIQUE_SCALES.map(s => <div key={s.value}>{s.value} = {s.label}</div>)}
+            </div>
+        </div>
+        {TEIQUE_ITEMS.map((item, index) => (
+            <SliderItem key={index} label={item} value={data[index]} min={1} max={7} labels={["Compl. dis.", "Fort. dis.", "Un po' dis.", "Né/Né", "Un po' acc.", "Fort. acc.", "Compl. acc."]} onChange={(val) => onChange(index, val)} />
+        ))}
+    </div>
+);
+
+export const MaiaTab: React.FC<TabProps> = ({ data, onChange }) => (
+    <div className="space-y-4">
+        <div className="mb-6 p-6 bg-yellow-900/10 rounded-lg border border-yellow-500/30">
+            <h3 className="text-xl font-bold text-yellow-500 mb-3 tracking-wide">MAIA (Consapevolezza Interocettiva)</h3>
+            <p className="text-sm text-slate-300 mb-4">Indica quanto spesso ciascuna affermazione si riferisce a te nella vita quotidiana.</p>
+            <div className="text-xs font-mono text-yellow-300 grid grid-cols-2 md:grid-cols-3 gap-2">
+                {MAIA_SCALES.map(s => <div key={s.value}>{s.value} = {s.label}</div>)}
+            </div>
+        </div>
+        {MAIA_ITEMS.map((item, index) => (
+            <SliderItem key={index} label={item} value={data[index]} min={0} max={5} labels={MAIA_SCALES.map(s => s.label)} onChange={(val) => onChange(index, val)} />
+        ))}
+    </div>
+);
+
+export const PassionTab: React.FC<TabProps> = ({ data, onChange }) => (
+    <div className="space-y-4">
+        <div className="mb-6 p-6 bg-rose-900/10 rounded-lg border border-rose-500/30">
+            <h3 className="text-xl font-bold text-rose-400 mb-3 tracking-wide">Passion Scale (Passione per lo Sport)</h3>
+            <p className="text-sm text-slate-300 mb-1 font-semibold">Lo sport che pratico: <span className="text-white font-bold">________________</span></p>
+            <p className="text-sm text-slate-300 mb-4">Pensando alle tue esperienze relative al tuo sport, per ciascuna affermazione scegli la voce che meglio corrisponde alle tue sensazioni.</p>
+            <div className="text-xs font-mono text-rose-300 grid grid-cols-5 gap-2">
+                {PASSION_SCALES.map(s => <div key={s.value} className="text-center">{s.value} = {s.label}</div>)}
+            </div>
+        </div>
+        {PASSION_ITEMS.map((item, index) => (
+            <SliderItem key={index} label={item} value={data[index]} min={1} max={5} labels={PASSION_SCALES.map(s => s.label)} onChange={(val) => onChange(index, val)} />
         ))}
     </div>
 );

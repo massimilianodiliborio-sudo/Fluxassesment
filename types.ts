@@ -6,7 +6,7 @@ export interface AthleteProfile {
   phone: string;
 }
 
-export type QuestionnaireType = 'IPPS' | 'TIPI' | 'MIS' | 'ERQ' | 'PPS' | 'CFQ' | 'BNSSS' | 'SEQ' | 'PESD';
+export type QuestionnaireType = 'IPPS' | 'TIPI' | 'MIS' | 'ERQ' | 'PPS' | 'CFQ' | 'BNSSS' | 'SEQ' | 'PESD' | 'TEIQUE' | 'MAIA' | 'PASSION';
 
 export interface QuestionnaireData {
   ipps: number[];
@@ -20,6 +20,9 @@ export interface QuestionnaireData {
   mts: number[];
   ct: number[];
   pesd: number[];
+  teique: number[];
+  maia: number[];
+  passion: number[];
 }
 
 export interface PesdItem {

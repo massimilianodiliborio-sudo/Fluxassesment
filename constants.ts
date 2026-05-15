@@ -241,6 +241,152 @@ export const PESD_CATEGORIES = [
     "Aspetti Somatici", "Aspetti Motori", "Prestazione", "Comunicazione", "Sostegno Sociale"
 ];
 
+// ==========================================
+// 10. TEIQue-SF (Trait Emotional Intelligence Questionnaire Short Form)
+// ==========================================
+export const TEIQUE_ITEMS = [
+    "1. Esprimere con le parole le mie emozioni non è un problema per me",
+    "2. Trovo spesso difficile vedere le cose dal punto di vista di un’altra persona",
+    "3. Nell’insieme sono una persona molto motivata",
+    "4. Di solito trovo difficile regolare le mie emozioni",
+    "5. In generale non trovo la vita piacevole",
+    "6. Riesco a interagire efficacemente con le persone",
+    "7. Tendo a cambiare idea frequentemente",
+    "8. Molte volte non riesco a capire che emozione sto provando",
+    "9. Sento di avere molte buone qualità",
+    "10. Trovo spesso difficile far valere le mie ragioni",
+    "11. Sono di solito in grado di influenzare i sentimenti delle altre persone",
+    "12. Nel complesso ho una visione triste della maggior parte delle cose",
+    "13. Quelli che mi stanno vicino si lamentano spesso che non li tratto con giustizia",
+    "14. Spesso trovo difficile adattare la mia vita a seconda delle circostanze",
+    "15. Nell’insieme, sono in grado di affrontare lo stress",
+    "16. Trovo sempre difficile mostrare il mio affetto alle persone care",
+    "17. Normalmente sono in grado di mettermi nei panni degli altri e di provare le loro emozioni",
+    "18. Normalmente trovo difficile mantenermi motivato",
+    "19. Sono di solito in grado di trovare il modo di controllare le mie emozioni quando voglio",
+    "20. Nell’insieme sono contento della mia vita",
+    "21. Mi descriverei come un buon negoziatore",
+    "22. Tendo a farmi coinvolgere in cose di cui poi invece spero di liberarmi",
+    "23. Penso spesso ai miei sentimenti e alle mie emozioni",
+    "24. Credo di avere molti punti di forza personale",
+    "25. Tendo a tirarmi indietro anche se so di avere ragione",
+    "26. Non sembro avere alcuna influenza sui sentimenti delle altre persone",
+    "27. Generalmente penso che nella vita le cose mi andranno bene",
+    "28. Trovo difficile legare bene anche con persone che sono a me vicino",
+    "29. In genere sono in grado di adattarmi a nuove situazioni",
+    "30. Gli altri mi ammirano per la mia capacità di essere rilassato"
+];
+
+export const TEIQUE_SCALES = [
+    { value: 1, label: 'Completamente in disaccordo' },
+    { value: 2, label: 'Fortemente in disaccordo' },
+    { value: 3, label: 'Un po\' in disaccordo' },
+    { value: 4, label: 'Né d\'accordo né in disaccordo' },
+    { value: 5, label: 'Un po\' d\'accordo' },
+    { value: 6, label: 'Fortemente d\'accordo' },
+    { value: 7, label: 'Completamente d\'accordo' }
+];
+
+export const TEIQUE_REVERSE_ITEMS = [1, 3, 4, 6, 7, 9, 11, 12, 13, 15, 17, 21, 24, 25, 27]; // 0-indexed items 2, 4, 5...
+
+export const TEIQUE_SUBSCALES = {
+    well_being: [4, 8, 11, 19, 23, 26],         // 5, 9, 12, 20, 24, 27
+    self_control: [3, 18, 6, 21, 14, 29],       // 4, 19, 7, 22, 15, 30
+    emotionality: [0, 1, 7, 12, 15, 16, 22, 27],// 1, 2, 8, 13, 16, 17, 23, 28
+    sociability: [5, 9, 10, 20, 24, 25]         // 6, 10, 11, 21, 25, 26
+};
+
+// ==========================================
+// 11. MAIA (Multidimensional Assessment of Interoceptive Awareness)
+// ==========================================
+export const MAIA_ITEMS = [
+    "1. Quando sono teso noto in che punti del mio corpo è localizzata la tensione.",
+    "2. Noto quando sono a disagio nel mio corpo.",
+    "3. Noto i punti del mio corpo in cui mi sento a mio agio.",
+    "4. Noto i cambiamenti nel mio respiro, per esempio se rallenta o accelera.",
+    "5. Non noto la tensione fisica o il disagio fino a quando questi non diventano più seri.",
+    "6. Mi distolgo dalle sensazioni di disagio.",
+    "7. Quando provo dolore o disagio, cerco comunque di andare avanti con quello che stavo facendo nonostante ciò.",
+    "8. Quando sento un dolore fisico, mi agito.",
+    "9. Inizio a preoccuparmi che ci sia qualcosa che non va, se percepisco un disagio.",
+    "10. Posso notare una sensazione corporea spiacevole senza preoccuparmene.",
+    "11. Posso prestare attenzione sul mio respiro senza farmi distrarre dalle cose che succedono attorno a me.",
+    "12. Posso mantenere la consapevolezza delle mie sensazioni fisiche interiori anche se attorno a me avvengono molte cose.",
+    "13. Quando sto conversando con qualcuno, riesco a prestare attenzione alla mia postura.",
+    "14. Posso ritrovare la consapevolezza del mio corpo se sono distratto.",
+    "15. Riesco a ridirezionare l'attenzione dall'atto di pensare all'atto di percepire il mio corpo.",
+    "16. Riesco a mantenere la consapevolezza del mio corpo nella sua interezza anche quando una parte di me è dolorante o a disagio.",
+    "17. Sono capace di focalizzarmi intenzionalmente sul mio corpo nella sua interezza.",
+    "18. Noto in che modo il mio corpo cambia quando sono arrabbiato.",
+    "19. Quando qualcosa va storto nella mia vita, riesco a percepirlo nel mio corpo.",
+    "20. Noto di sentire il mio corpo diverso dopo un'esperienza serena.",
+    "21. Noto che il mio respiro diventa libero e agevole quando mi sento a mio agio.",
+    "22. Noto come il mio corpo cambia quando mi sento felice/gioioso.",
+    "23. Quando mi sento sopraffatto, riesco a trovare dentro di me un posto tranquillo.",
+    "24. Quando rivolgo la consapevolezza sul mio corpo, provo un senso di calma.",
+    "25. Riesco ad utilizzare il mio respiro per ridurre la tensione.",
+    "26. Quando mi assalgono i pensieri, posso calmare la mente concentrandomi sul mio corpo/respiro.",
+    "27. Ascolto le informazioni provenienti dal mio corpo riguardanti i miei stati emotivi.",
+    "28. Quando sono agitato, prendo il tempo necessario per indagare come sta il mio corpo.",
+    "29. Ascolto il mio corpo per sapere cosa fare.",
+    "30. Nel mio corpo mi sento a casa.",
+    "31. Sento che il mio corpo è un posto sicuro.",
+    "32. Mi fido delle sensazioni del mio corpo."
+];
+
+export const MAIA_SCALES = [
+    { value: 0, label: 'Mai' },
+    { value: 1, label: 'Raramente' },
+    { value: 2, label: 'A volte' },
+    { value: 3, label: 'Spesso' },
+    { value: 4, label: 'Molto Spesso' },
+    { value: 5, label: 'Sempre' }
+];
+
+export const MAIA_REVERSE_ITEMS = [4, 5, 6, 7, 8]; // 0-indexed items 5, 6, 7, 8, 9
+
+export const MAIA_SUBSCALES = {
+    noticing: [0, 1, 2, 3], // 1, 2, 3, 4
+    not_distracting: [4, 5, 6], // 5, 6, 7
+    not_worrying: [7, 8, 9], // 8, 9, 10
+    attention_regulation: [10, 11, 12, 13, 14, 15, 16], // 11 to 17
+    emotional_awareness: [17, 18, 19, 20, 21], // 18 to 22
+    self_regulation: [22, 23, 24, 25], // 23 to 26
+    body_listening: [26, 27, 28], // 27 to 29
+    trusting: [29, 30, 31] // 30, 31, 32
+};
+
+// ==========================================
+// 12. PASSION (The Passion Scale)
+// ==========================================
+export const PASSION_ITEMS = [
+    "1. È ben integrato nella mia vita",
+    "2. Le cose nuove che scopro con questa attività mi consentono di apprezzarla ancora di più",
+    "3. Mi suscita una tale smania che ho difficoltà a controllare",
+    "4. È la sola cosa che riesce a suscitarmi molta eccitazione",
+    "5. Riflette le qualità che mi piacciono di me stesso",
+    "6. Mi suscita un desiderio quasi ossessivo",
+    "7. È in armonia con le altre attività della mia vita",
+    "8. Se potessi permettermelo, farei solo questo",
+    "9. È così eccitante che a volte diventa un’ossessione",
+    "10. Mi consente di vivere una varietà di esperienze",
+    "11. È in armonia con altre esperienze che sono parte di me",
+    "12. Ho l'impressione che di questa attività mi stia sfuggendo il controllo"
+];
+
+export const PASSION_SCALES = [
+    { value: 1, label: 'Per niente' },
+    { value: 2, label: 'Poco' },
+    { value: 3, label: 'Moderatamente' },
+    { value: 4, label: 'Molto' },
+    { value: 5, label: 'Moltissimo' }
+];
+
+export const PASSION_SUBSCALES = {
+    harmonious: [0, 1, 4, 6, 9, 10], // 1, 2, 5, 7, 10, 11
+    obsessive: [2, 3, 5, 7, 8, 11]   // 3, 4, 6, 8, 9, 12
+};
+
 export const QUESTIONNAIRE_MAP: Record<string, { label: string; itemCount: number; dbKey: string }> = {
     'IPPS': { label: 'IPPS-24', itemCount: 24, dbKey: 'ipps' },
     'TIPI': { label: 'TIPI', itemCount: 10, dbKey: 'tipi' },
@@ -252,5 +398,8 @@ export const QUESTIONNAIRE_MAP: Record<string, { label: string; itemCount: numbe
     'SEQ': { label: 'SEQ', itemCount: 5, dbKey: 'seq' },
     'MTS': { label: 'MTS', itemCount: 11, dbKey: 'mts' },
     'CT': { label: 'C&T', itemCount: 10, dbKey: 'ct' },
+    'TEIQUE': { label: 'TEIQue-SF', itemCount: 30, dbKey: 'teique' },
+    'MAIA': { label: 'MAIA', itemCount: 32, dbKey: 'maia' },
+    'PASSION': { label: 'Passion Scale', itemCount: 12, dbKey: 'passion' },
     'PESD': { label: 'PESD', itemCount: 30, dbKey: 'pesd' },
 };

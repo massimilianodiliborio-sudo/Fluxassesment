@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Target, Brain, Swords, Activity, Send, CheckCircle, AlertCircle, Lock, Info, ChevronDown, ChevronUp, User, Mail, Phone, Trophy, Calendar } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
-import { IppsTab, TipiTab, MisTab, ErqTab, PpsTab, CfqTab, BnsssTab, SeqTab, MtsTab, CtTab } from '../components/Questionnaires';
+import { IppsTab, TipiTab, MisTab, ErqTab, PpsTab, CfqTab, BnsssTab, SeqTab, MtsTab, CtTab, TeiqueTab, MaiaTab, PassionTab } from '../components/Questionnaires';
 import { PesdTab } from '../components/PesdTab';
-import { DISCIPLINES } from '../constants';
+import { 
+    IPPS_ITEMS, TIPI_ITEMS, MIS_ITEMS, ERQ_ITEMS, PPS_ITEMS, CFQ_ITEMS, BNSSS_ITEMS, SEQ_ITEMS,
+    MTS_ITEMS, CT_ITEMS, PESD_ITEMS, DISCIPLINES,
+    TEIQUE_ITEMS, MAIA_ITEMS, PASSION_ITEMS 
+} from '../constants';
 import { AthleteProfile } from '../types';
 import { supabase } from '../lib/supabase';
-import { useQuestionnaireState } from '../hooks/useQuestionnaireState';
 
 export const AthletePage = () => {
   const [profile, setProfile] = useState<AthleteProfile>({
@@ -17,10 +20,20 @@ export const AthletePage = () => {
     phone: ''
   });
 
-  const {
-    ippsData, tipiData, misData, erqData, ppsData, cfqData, bnsssData, seqData, mtsData, ctData, pesdData,
-    setIppsData, setTipiData, setMisData, setErqData, setPpsData, setCfqData, setBnsssData, setSeqData, setMtsData, setCtData, setPesdData,
-  } = useQuestionnaireState();
+  const [ippsData, setIppsData] = useState<number[]>(new Array(IPPS_ITEMS.length).fill(3));
+  const [tipiData, setTipiData] = useState<number[]>(new Array(TIPI_ITEMS.length).fill(4));
+  const [misData, setMisData] = useState<number[]>(new Array(MIS_ITEMS.length).fill(3));
+  const [erqData, setErqData] = useState<number[]>(new Array(ERQ_ITEMS.length).fill(4));
+  const [ppsData, setPpsData] = useState<number[]>(new Array(PPS_ITEMS.length).fill(4));
+  const [cfqData, setCfqData] = useState<number[]>(new Array(CFQ_ITEMS.length).fill(3));
+  const [bnsssData, setBnsssData] = useState<number[]>(new Array(BNSSS_ITEMS.length).fill(4));
+  const [seqData, setSeqData] = useState<number[]>(new Array(SEQ_ITEMS.length).fill(2));
+  const [mtsData, setMtsData] = useState<number[]>(new Array(MTS_ITEMS.length).fill(3));
+  const [ctData, setCtData] = useState<number[]>(new Array(CT_ITEMS.length).fill(3));
+  const [pesdData, setPesdData] = useState<number[]>(new Array(PESD_ITEMS.length).fill(0));
+  const [teiqueData, setTeiqueData] = useState<number[]>(new Array(TEIQUE_ITEMS.length).fill(4));
+  const [maiaData, setMaiaData] = useState<number[]>(new Array(MAIA_ITEMS.length).fill(2));
+  const [passionData, setPassionData] = useState<number[]>(new Array(PASSION_ITEMS.length).fill(3));
 
   const [activeTab, setActiveTab] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,7 +74,10 @@ export const AthletePage = () => {
     { id: 7, testKey: 'SEQ', label: 'SEQ', icon: Brain, component: <SeqTab data={seqData} onChange={(i, v) => updateQuestionnaire(setSeqData, i, v)} /> },
     { id: 8, testKey: 'MTS', label: 'MTS', icon: Brain, component: <MtsTab data={mtsData} onChange={(i, v) => updateQuestionnaire(setMtsData, i, v)} /> },
     { id: 9, testKey: 'CT', label: 'CT', icon: Target, component: <CtTab data={ctData} onChange={(i, v) => updateQuestionnaire(setCtData, i, v)} /> },
-    { id: 10, testKey: 'PESD', label: 'PESD', icon: Activity, component: <PesdTab data={pesdData} onChange={(i, v) => updateQuestionnaire(setPesdData, i, v)} /> }
+    { id: 10, testKey: 'PESD', label: 'PESD', icon: Activity, component: <PesdTab data={pesdData} onChange={(i, v) => updateQuestionnaire(setPesdData, i, v)} /> },
+    { id: 11, testKey: 'TEIQUE', label: 'TEIQue-SF', icon: Brain, component: <TeiqueTab data={teiqueData} onChange={(i, v) => updateQuestionnaire(setTeiqueData, i, v)} /> },
+    { id: 12, testKey: 'MAIA', label: 'MAIA', icon: Activity, component: <MaiaTab data={maiaData} onChange={(i, v) => updateQuestionnaire(setMaiaData, i, v)} /> },
+    { id: 13, testKey: 'PASSION', label: 'Passion Scale', icon: Target, component: <PassionTab data={passionData} onChange={(i, v) => updateQuestionnaire(setPassionData, i, v)} /> }
   ].filter(tab => isTestRequested(tab.testKey));
 
   React.useEffect(() => {
@@ -109,7 +125,10 @@ export const AthletePage = () => {
         seq: isTestRequested('SEQ') ? seqData : null,
         mts: isTestRequested('MTS') ? mtsData : null,
         ct: isTestRequested('CT') ? ctData : null,
-        pesd: isTestRequested('PESD') ? pesdData : null
+        pesd: isTestRequested('PESD') ? pesdData : null,
+        teique: isTestRequested('TEIQUE') ? teiqueData : null,
+        maia: isTestRequested('MAIA') ? maiaData : null,
+        passion: isTestRequested('PASSION') ? passionData : null
       });
 
       if (error) {
