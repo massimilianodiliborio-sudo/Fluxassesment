@@ -183,6 +183,9 @@ export const DashboardPage = () => {
         // Track which questionnaires have real data from DB
         const hasData = (arr: number[] | undefined): boolean => !!(arr && arr.length > 0);
 
+        // M1: reset compiled first to avoid stale state from previous record
+        setCompiled({});
+
         setCompiled({
             IPPS:    hasData(record.ipps),
             TIPI:    hasData(record.tipi),
@@ -275,11 +278,14 @@ export const DashboardPage = () => {
     }
 
     const NotCompiled = ({ label }: { label: string }) => (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-slate-800/40 border border-slate-700/50 text-slate-500 text-sm">
-            <span className="w-2 h-2 rounded-full bg-slate-600 shrink-0" />
-            {label} — <span className="italic">Non compilato</span>
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-slate-800/30 border border-slate-700/30 text-slate-600 text-sm italic">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-700 shrink-0" />
+            {label} — non compilato
         </div>
     );
+
+    // m4: true if no questionnaire has data at all
+    const nothingCompiled = Object.keys(compiled).length > 0 && Object.values(compiled).every(v => !v);
 
     const TABS = [
         { id: 10, label: 'Risultati & Analisi', key: null },
@@ -392,17 +398,20 @@ export const DashboardPage = () => {
                                         </div>
                                         <div className="text-[10px] text-slate-400 mt-1 truncate">
                                             Test: {[
-                                                rec.ipps && 'IPPS',
-                                                rec.tipi && 'TIPI',
-                                                rec.mis && 'MIS',
-                                                rec.erq && 'ERQ',
-                                                rec.pps && 'PPS',
-                                                rec.cfq && 'CFQ',
-                                                rec.bnsss && 'BNSSS',
-                                                rec.seq && 'SEQ',
-                                                rec.mts && 'MTS',
-                                                rec.ct && 'CT',
-                                                rec.pesd && 'PESD'
+                                                rec.ipps?.length   ? 'IPPS'    : null,
+                                                rec.tipi?.length   ? 'TIPI'    : null,
+                                                rec.mis?.length    ? 'MIS'     : null,
+                                                rec.erq?.length    ? 'ERQ'     : null,
+                                                rec.pps?.length    ? 'PPS'     : null,
+                                                rec.cfq?.length    ? 'CFQ'     : null,
+                                                rec.bnsss?.length  ? 'BNSSS'   : null,
+                                                rec.seq?.length    ? 'SEQ'     : null,
+                                                rec.mts?.length    ? 'MTS'     : null,
+                                                rec.ct?.length     ? 'CT'      : null,
+                                                rec.pesd?.length   ? 'PESD'    : null,
+                                                rec.teique?.length ? 'TEIQue'  : null,
+                                                rec.maia?.length   ? 'MAIA'    : null,
+                                                rec.passion?.length? 'Passion' : null,
                                             ].filter(Boolean).join(', ') || 'Nessuno'}
                                         </div>
                                     </div>
@@ -442,9 +451,9 @@ export const DashboardPage = () => {
                             <span className="font-bold truncate">{currentProfile.name}</span>
                         </div>
 
-                         {/* Tabs Navigation */}
+                         {/* Tabs Navigation — M7: compiled tabs bright, non-compiled visibly dimmed */}
                         <div className="bg-slate-900 border-b border-slate-800 p-4">
-                             <div className="flex flex-wrap gap-2 text-sm font-medium">
+                             <div className="flex flex-nowrap overflow-x-auto gap-2 text-sm font-medium pb-1 scrollbar-none">
                                 {TABS.map(tab => {
                                     const isCompiled = tab.key === null || compiled[tab.key];
                                     const isActive = activeTab === tab.id;
@@ -452,16 +461,15 @@ export const DashboardPage = () => {
                                         <button
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id)}
-                                            className={`py-2 px-4 rounded-lg border-2 transition-colors ${
+                                            className={`py-2 px-3 rounded-lg border transition-colors shrink-0 text-xs ${
                                                 isActive
                                                     ? 'border-cyan-500 bg-cyan-900/20 text-cyan-400'
                                                     : isCompiled
-                                                        ? 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800'
-                                                        : 'border-transparent text-slate-600 cursor-pointer hover:bg-slate-800/50'
+                                                        ? 'border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'
+                                                        : 'border-slate-800 text-slate-600 hover:bg-slate-800/40 line-through decoration-slate-700'
                                             }`}
                                         >
                                             {tab.label}
-                                            {!isCompiled && <span className="ml-1.5 text-[10px] text-slate-600">—</span>}
                                         </button>
                                     );
                                 })}
@@ -471,22 +479,29 @@ export const DashboardPage = () => {
                         {/* Content */}
                         <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                             <div className="max-w-6xl mx-auto">
+                            {/* m4: show single message if nothing was compiled */}
+                            {activeTab !== 10 && nothingCompiled && (
+                                <div className="flex flex-col items-center justify-center py-16 text-slate-600 gap-3">
+                                    <span className="text-4xl">—</span>
+                                    <p className="text-sm italic">Nessun dato disponibile per questo atleta.</p>
+                                </div>
+                            )}
                                 {activeTab === 10 && <ResultsTab profile={currentProfile} data={{ ipps: ippsData, tipi: tipiData, mis: misData, erq: erqData, pps: ppsData, cfq: cfqData, bnsss: bnsssData, seq: seqData, mts: mtsData, ct: ctData, pesd: pesdData, teique: teiqueData, maia: maiaData, passion: passionData }} />}
-                                {/* Read-only views — show placeholder if not compiled */}
-                                {activeTab === 0  && (compiled.IPPS    ? <div className="pointer-events-none opacity-80"><IppsTab    data={ippsData}    onChange={()=>{}} /></div> : <NotCompiled label="IPPS-24" />)}
-                                {activeTab === 1  && (compiled.TIPI    ? <div className="pointer-events-none opacity-80"><TipiTab    data={tipiData}    onChange={()=>{}} /></div> : <NotCompiled label="TIPI" />)}
-                                {activeTab === 2  && (compiled.MIS     ? <div className="pointer-events-none opacity-80"><MisTab     data={misData}     onChange={()=>{}} /></div> : <NotCompiled label="MIS" />)}
-                                {activeTab === 3  && (compiled.ERQ     ? <div className="pointer-events-none opacity-80"><ErqTab     data={erqData}     onChange={()=>{}} /></div> : <NotCompiled label="ERQ" />)}
-                                {activeTab === 4  && (compiled.PPS     ? <div className="pointer-events-none opacity-80"><PpsTab     data={ppsData}     onChange={()=>{}} /></div> : <NotCompiled label="PPS-S" />)}
-                                {activeTab === 5  && (compiled.CFQ     ? <div className="pointer-events-none opacity-80"><CfqTab     data={cfqData}     onChange={()=>{}} /></div> : <NotCompiled label="CFQ" />)}
-                                {activeTab === 6  && (compiled.BNSSS   ? <div className="pointer-events-none opacity-80"><BnsssTab   data={bnsssData}   onChange={()=>{}} /></div> : <NotCompiled label="BNSSS" />)}
-                                {activeTab === 7  && (compiled.SEQ     ? <div className="pointer-events-none opacity-80"><SeqTab     data={seqData}     onChange={()=>{}} /></div> : <NotCompiled label="SEQ" />)}
-                                {activeTab === 8  && (compiled.MTS     ? <div className="pointer-events-none opacity-80"><MtsTab     data={mtsData}     onChange={()=>{}} /></div> : <NotCompiled label="MTS" />)}
-                                {activeTab === 9  && (compiled.CT      ? <div className="pointer-events-none opacity-80"><CtTab      data={ctData}      onChange={()=>{}} /></div> : <NotCompiled label="Sfida & Minaccia" />)}
-                                {activeTab === 11 && (compiled.PESD    ? <div className="pointer-events-none opacity-80"><PesdTab    data={pesdData}    onChange={()=>{}} /></div> : <NotCompiled label="PESD-Sport" />)}
-                                {activeTab === 12 && (compiled.TEIQUE  ? <div className="pointer-events-none opacity-80"><TeiqueTab  data={teiqueData}  onChange={()=>{}} /></div> : <NotCompiled label="TEIQue-SF" />)}
-                                {activeTab === 13 && (compiled.MAIA    ? <div className="pointer-events-none opacity-80"><MaiaTab    data={maiaData}    onChange={()=>{}} /></div> : <NotCompiled label="MAIA" />)}
-                                {activeTab === 14 && (compiled.PASSION ? <div className="pointer-events-none opacity-80"><PassionTab data={passionData} onChange={()=>{}} /></div> : <NotCompiled label="Passion Scale" />)}
+                                {/* Read-only views — show placeholder if not compiled (skip if nothingCompiled shows the global message) */}
+                                {!nothingCompiled && activeTab === 0  && (compiled.IPPS    ? <div className="pointer-events-none opacity-80"><IppsTab    data={ippsData}    onChange={()=>{}} /></div> : <NotCompiled label="IPPS-24" />)}
+                                {!nothingCompiled && activeTab === 1  && (compiled.TIPI    ? <div className="pointer-events-none opacity-80"><TipiTab    data={tipiData}    onChange={()=>{}} /></div> : <NotCompiled label="TIPI" />)}
+                                {!nothingCompiled && activeTab === 2  && (compiled.MIS     ? <div className="pointer-events-none opacity-80"><MisTab     data={misData}     onChange={()=>{}} /></div> : <NotCompiled label="MIS" />)}
+                                {!nothingCompiled && activeTab === 3  && (compiled.ERQ     ? <div className="pointer-events-none opacity-80"><ErqTab     data={erqData}     onChange={()=>{}} /></div> : <NotCompiled label="ERQ" />)}
+                                {!nothingCompiled && activeTab === 4  && (compiled.PPS     ? <div className="pointer-events-none opacity-80"><PpsTab     data={ppsData}     onChange={()=>{}} /></div> : <NotCompiled label="PPS-S" />)}
+                                {!nothingCompiled && activeTab === 5  && (compiled.CFQ     ? <div className="pointer-events-none opacity-80"><CfqTab     data={cfqData}     onChange={()=>{}} /></div> : <NotCompiled label="CFQ" />)}
+                                {!nothingCompiled && activeTab === 6  && (compiled.BNSSS   ? <div className="pointer-events-none opacity-80"><BnsssTab   data={bnsssData}   onChange={()=>{}} /></div> : <NotCompiled label="BNSSS" />)}
+                                {!nothingCompiled && activeTab === 7  && (compiled.SEQ     ? <div className="pointer-events-none opacity-80"><SeqTab     data={seqData}     onChange={()=>{}} /></div> : <NotCompiled label="SEQ" />)}
+                                {!nothingCompiled && activeTab === 8  && (compiled.MTS     ? <div className="pointer-events-none opacity-80"><MtsTab     data={mtsData}     onChange={()=>{}} /></div> : <NotCompiled label="MTS" />)}
+                                {!nothingCompiled && activeTab === 9  && (compiled.CT      ? <div className="pointer-events-none opacity-80"><CtTab      data={ctData}      onChange={()=>{}} /></div> : <NotCompiled label="Sfida & Minaccia" />)}
+                                {!nothingCompiled && activeTab === 11 && (compiled.PESD    ? <div className="pointer-events-none opacity-80"><PesdTab    data={pesdData}    onChange={()=>{}} /></div> : <NotCompiled label="PESD-Sport" />)}
+                                {!nothingCompiled && activeTab === 12 && (compiled.TEIQUE  ? <div className="pointer-events-none opacity-80"><TeiqueTab  data={teiqueData}  onChange={()=>{}} /></div> : <NotCompiled label="TEIQue-SF" />)}
+                                {!nothingCompiled && activeTab === 13 && (compiled.MAIA    ? <div className="pointer-events-none opacity-80"><MaiaTab    data={maiaData}    onChange={()=>{}} /></div> : <NotCompiled label="MAIA" />)}
+                                {!nothingCompiled && activeTab === 14 && (compiled.PASSION ? <div className="pointer-events-none opacity-80"><PassionTab data={passionData} onChange={()=>{}} /></div> : <NotCompiled label="Passion Scale" />)}
                             </div>
                         </div>
                     </>

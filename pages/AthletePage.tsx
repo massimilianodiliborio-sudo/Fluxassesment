@@ -40,8 +40,8 @@ export const AthletePage = () => {
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
-  // State per gestire l'apertura del pannello dati su mobile
-  const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(true);
+  // State per gestire l'apertura del pannello dati su mobile — M6: chiuso di default
+  const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
 
   const handleProfileChange = (field: keyof AthleteProfile, value: string | number) => {
     setProfile(prev => ({ ...prev, [field]: value }));
@@ -56,12 +56,22 @@ export const AthletePage = () => {
     });
   };
 
-  // URL Parameter filtering
+  // URL Parameter filtering — C1: filter out empty strings from malformed ?q= params
   const searchParams = new window.URLSearchParams(window.location.hash.split('?')[1] || '');
-  const requestedTests = searchParams.get('q')?.split(',') || [];
+  const requestedTests = (searchParams.get('q')?.split(',') || []).filter(t => t.trim() !== '');
   const filtersActive = requestedTests.length > 0 && requestedTests[0] !== 'none';
 
   const isTestRequested = (testKey: string) => !filtersActive || requestedTests.includes(testKey);
+
+  // M5: map each questionnaire key to its data array to compute completion
+  const tabDataMap: Record<string, (number | null)[]> = {
+    IPPS: ippsData, TIPI: tipiData, MIS: misData, ERQ: erqData,
+    PPS: ppsData, CFQ: cfqData, BNSSS: bnsssData, SEQ: seqData,
+    MTS: mtsData, CT: ctData, PESD: pesdData,
+    TEIQUE: teiqueData, MAIA: maiaData, PASSION: passionData,
+  };
+  const isTabComplete = (testKey: string) =>
+    (tabDataMap[testKey] ?? []).every(v => v !== null);
 
   const tabs = [
     { id: 0, testKey: 'IPPS', label: 'IPPS-24', icon: Target, component: <IppsTab data={ippsData} onChange={(i, v) => updateQuestionnaire(setIppsData, i, v)} /> },
@@ -215,11 +225,19 @@ export const AthletePage = () => {
                     <span className="bg-yellow-400 p-1 rounded text-slate-900"><Target size={16} fill="currentColor" /></span>
                     FLUX Assessment
                 </div>
-                <button 
+                <button
                     onClick={() => setIsMobileProfileOpen(!isMobileProfileOpen)}
-                    className={`flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all ${isMobileProfileOpen ? 'bg-cyan-900/50 text-cyan-400' : 'bg-slate-800 text-slate-400'}`}
+                    className={`flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all ${
+                        isMobileProfileOpen
+                            ? 'bg-cyan-900/50 text-cyan-400'
+                            : profile.name.trim()
+                                ? 'bg-green-900/40 text-green-400'
+                                : 'bg-orange-900/40 text-orange-400 animate-pulse'
+                    }`}
                 >
-                    <User size={14} /> Dati Atleta {isMobileProfileOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    <User size={14} />
+                    {profile.name.trim() ? profile.name.split(' ')[0] : 'Inserisci dati'}
+                    {isMobileProfileOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
             </div>
 
@@ -325,21 +343,31 @@ export const AthletePage = () => {
                 </div>
             </div>
 
+            {/* M4: overflow-x-auto + flex-nowrap for horizontal scroll on mobile */}
             <div className="bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-2 shadow-lg">
-                <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                    {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 py-2 px-4 rounded-lg transition-all font-bold text-xs sm:text-sm tracking-wide border-2
-                        ${activeTab === tab.id 
-                            ? 'border-cyan-500 bg-cyan-900/20 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]' 
-                            : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
-                    >
-                        <tab.icon size={16} />
-                        {tab.label}
-                    </button>
-                    ))}
+                <div className="flex flex-nowrap overflow-x-auto gap-2 scrollbar-none pb-1">
+                    {tabs.map((tab) => {
+                        const complete = isTabComplete(tab.testKey);
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 py-2 px-4 rounded-lg transition-all font-bold text-xs sm:text-sm tracking-wide border-2 shrink-0
+                                ${isActive
+                                    ? 'border-cyan-500 bg-cyan-900/20 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]'
+                                    : complete
+                                        ? 'border-green-700/40 text-slate-400 hover:text-white hover:bg-slate-800'
+                                        : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                            >
+                                {/* M5: green checkmark when all items answered */}
+                                {complete
+                                    ? <span className="text-green-400 text-xs">✓</span>
+                                    : <tab.icon size={14} />}
+                                {tab.label}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
