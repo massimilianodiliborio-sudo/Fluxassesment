@@ -6,8 +6,9 @@ import { ResultsTab } from '../components/ResultsTab';
 import { IppsTab, TipiTab, MisTab, ErqTab, PpsTab, CfqTab, BnsssTab, SeqTab, MtsTab, CtTab, TeiqueTab, MaiaTab, PassionTab } from '../components/Questionnaires';
 import { PesdTab } from '../components/PesdTab';
 import { LinkGenerator } from '../components/LinkGenerator';
-import { 
-    IPPS_ITEMS, TIPI_ITEMS, MIS_ITEMS, ERQ_ITEMS, PPS_ITEMS, CFQ_ITEMS, BNSSS_ITEMS, SEQ_ITEMS, MTS_ITEMS, CT_ITEMS, PESD_ITEMS, DISCIPLINES 
+import {
+    IPPS_ITEMS, TIPI_ITEMS, MIS_ITEMS, ERQ_ITEMS, PPS_ITEMS, CFQ_ITEMS, BNSSS_ITEMS, SEQ_ITEMS, MTS_ITEMS, CT_ITEMS, PESD_ITEMS, DISCIPLINES,
+    TEIQUE_ITEMS, MAIA_ITEMS, PASSION_ITEMS
 } from '../constants';
 
 export const DashboardPage = () => {
@@ -35,9 +36,9 @@ export const DashboardPage = () => {
     const [mtsData, setMtsData] = useState<number[]>(new Array(MTS_ITEMS.length).fill(3));
     const [ctData, setCtData] = useState<number[]>(new Array(CT_ITEMS.length).fill(3));
     const [pesdData, setPesdData] = useState<number[]>(new Array(PESD_ITEMS.length).fill(0));
-    const [teiqueData, setTeiqueData] = useState<number[]>([]);
-    const [maiaData, setMaiaData] = useState<number[]>([]);
-    const [passionData, setPassionData] = useState<number[]>([]);
+    const [teiqueData, setTeiqueData] = useState<number[]>(new Array(TEIQUE_ITEMS.length).fill(4));
+    const [maiaData, setMaiaData] = useState<number[]>(new Array(MAIA_ITEMS.length).fill(2));
+    const [passionData, setPassionData] = useState<number[]>(new Array(PASSION_ITEMS.length).fill(3));
 
     // Mobile view state
     const [isMobileListVisible, setIsMobileListVisible] = useState(true);
@@ -171,6 +172,12 @@ export const DashboardPage = () => {
     }, [searchTerm, disciplineFilter, records]);
 
     const selectRecord = (record: AssessmentRecord) => {
+        // M4: validate array lengths to prevent crashes on malformed DB data
+        const safeArr = (arr: number[] | undefined, expectedLen: number, fallback: number): number[] => {
+            if (!arr || arr.length !== expectedLen) return new Array(expectedLen).fill(fallback);
+            return arr;
+        };
+
         setSelectedId(record.id);
         setCurrentProfile({
             name: record.name,
@@ -179,20 +186,20 @@ export const DashboardPage = () => {
             email: record.email,
             phone: record.phone
         });
-        setIppsData(record.ipps || []);
-        setTipiData(record.tipi || []);
-        setMisData(record.mis || []);
-        setErqData(record.erq || []);
-        setPpsData(record.pps || []);
-        setCfqData(record.cfq || []);
-        setBnsssData(record.bnsss || []);
-        setSeqData(record.seq || []);
-        setMtsData(record.mts || []);
-        setCtData(record.ct || []);
-        setPesdData(record.pesd || []);
-        setTeiqueData(record.teique || []);
-        setMaiaData(record.maia || []);
-        setPassionData(record.passion || []);
+        setIppsData(safeArr(record.ipps,    IPPS_ITEMS.length,    3));
+        setTipiData(safeArr(record.tipi,    TIPI_ITEMS.length,    4));
+        setMisData(safeArr(record.mis,      MIS_ITEMS.length,     3));
+        setErqData(safeArr(record.erq,      ERQ_ITEMS.length,     4));
+        setPpsData(safeArr(record.pps,      PPS_ITEMS.length,     4));
+        setCfqData(safeArr(record.cfq,      CFQ_ITEMS.length,     3));
+        setBnsssData(safeArr(record.bnsss,  BNSSS_ITEMS.length,   4));
+        setSeqData(safeArr(record.seq,      SEQ_ITEMS.length,     2));
+        setMtsData(safeArr(record.mts,      MTS_ITEMS.length,     3));
+        setCtData(safeArr(record.ct,        CT_ITEMS.length,      3));
+        setPesdData(safeArr(record.pesd,    PESD_ITEMS.length,    0));
+        setTeiqueData(safeArr(record.teique, TEIQUE_ITEMS.length, 4));
+        setMaiaData(safeArr(record.maia,    MAIA_ITEMS.length,    2));
+        setPassionData(safeArr(record.passion, PASSION_ITEMS.length, 3));
         setActiveTab(10); // 10 represents the Results tab
         setIsMobileListVisible(false);
     };

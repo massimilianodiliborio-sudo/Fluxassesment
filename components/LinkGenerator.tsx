@@ -41,7 +41,7 @@ export const LinkGenerator = () => {
     };
 
     const totalItems = selectedReqs.reduce((acc, key) => acc + QUESTIONNAIRE_MAP[key].itemCount, 0);
-    const estimatedMinutes = Math.ceil((totalItems * 12) / 60);
+    const estimatedMinutes = Math.ceil((totalItems * 30) / 60);
 
     const link = generateLinkURL();
     const encodedLink = encodeURIComponent(link);

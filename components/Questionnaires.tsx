@@ -1,5 +1,6 @@
 import React from 'react';
-import { 
+import { AlertCircle } from 'lucide-react';
+import {
     IPPS_ITEMS, IPPS_SCALES,
     TIPI_ITEMS, TIPI_SCALES,
     MIS_ITEMS, MIS_SCALES,
@@ -17,7 +18,7 @@ import { TabProps } from '../types';
 
 interface SliderItemProps {
     label: string;
-    value: number;
+    value: number | null;
     min: number;
     max: number;
     labels: string[];
@@ -25,18 +26,32 @@ interface SliderItemProps {
 }
 
 const SliderItem: React.FC<SliderItemProps> = ({ label, value, min, max, labels, onChange }) => {
+    const isAnswered = value !== null;
+    const displayValue = value ?? min;
+
     return (
-        <div className="mb-8 p-6 bg-slate-900 rounded-xl shadow-lg border border-slate-800 hover:border-cyan-500/30 transition-all group">
+        <div className={`mb-8 p-6 rounded-xl shadow-lg border transition-all group ${
+            isAnswered
+                ? 'bg-slate-900 border-slate-800 hover:border-cyan-500/30'
+                : 'bg-slate-900/70 border-orange-500/40 hover:border-orange-500/60'
+        }`}>
+            {!isAnswered && (
+                <div className="mb-3 flex items-center gap-2 text-orange-400 text-xs font-bold">
+                    <AlertCircle size={13} /> Da rispondere
+                </div>
+            )}
             <h4 className="text-md font-medium text-slate-200 mb-6 leading-relaxed group-hover:text-white transition-colors">{label}</h4>
-            
+
             <div className="relative mb-8">
                 <input
                     type="range"
                     min={min}
                     max={max}
-                    value={value}
+                    value={displayValue}
                     onChange={(e) => onChange(parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500 z-10 relative focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                    className={`w-full h-2 rounded-lg appearance-none cursor-pointer z-10 relative focus:outline-none focus:ring-2 focus:ring-cyan-500/50 ${
+                        isAnswered ? 'bg-slate-700 accent-cyan-500' : 'bg-orange-900/40 accent-orange-400'
+                    }`}
                 />
                 {/* Ticks */}
                 <div className="absolute top-3 left-0 w-full flex justify-between px-1">
@@ -48,12 +63,13 @@ const SliderItem: React.FC<SliderItemProps> = ({ label, value, min, max, labels,
                 </div>
             </div>
 
-            <div className="flex justify-between items-start text-[10px] sm:text-xs text-slate-500 font-medium tracking-tight mt-2">
+            {/* m1 fix: text-xs (12px) instead of text-[10px] */}
+            <div className="flex justify-between items-start text-xs text-slate-500 font-medium tracking-tight mt-2">
                 {labels.map((l, i) => (
-                    <div 
-                        key={i} 
+                    <div
+                        key={i}
                         className={`text-center transition-all duration-300 w-16 ${
-                            value === min + i ? 'text-cyan-400 font-bold scale-110 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'hover:text-slate-300'
+                            isAnswered && value === min + i ? 'text-cyan-400 font-bold scale-110 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'hover:text-slate-300'
                         }`}
                         onClick={() => onChange(min + i)}
                         style={{ cursor: 'pointer' }}
@@ -62,11 +78,17 @@ const SliderItem: React.FC<SliderItemProps> = ({ label, value, min, max, labels,
                     </div>
                 ))}
             </div>
-            
+
             <div className="mt-4 text-center">
-                 <span className="inline-block px-4 py-1.5 bg-slate-950 border border-slate-700 text-cyan-400 rounded-md font-mono font-bold text-sm shadow-inner">
-                    Punteggio: <span className="text-white">{value}</span>
-                 </span>
+                {isAnswered ? (
+                    <span className="inline-block px-4 py-1.5 bg-slate-950 border border-slate-700 text-cyan-400 rounded-md font-mono font-bold text-sm shadow-inner">
+                        Punteggio: <span className="text-white">{value}</span>
+                    </span>
+                ) : (
+                    <span className="inline-block px-4 py-1.5 bg-orange-950/30 border border-orange-800/50 text-orange-400 rounded-md font-mono text-xs">
+                        Sposta il cursore per rispondere
+                    </span>
+                )}
             </div>
         </div>
     );

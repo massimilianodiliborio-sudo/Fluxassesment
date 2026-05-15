@@ -37,6 +37,6 @@ export interface AssessmentRecord extends AthleteProfile, QuestionnaireData {
 }
 
 export interface TabProps {
-  data: number[];
+  data: (number | null)[];
   onChange: (index: number, value: number) => void;
 }

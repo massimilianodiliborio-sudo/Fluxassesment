@@ -1,10 +1,12 @@
 import React from 'react';
+import { AlertCircle } from 'lucide-react';
 import { PESD_ITEMS } from '../constants';
 import { TabProps } from '../types';
 
 export const PesdTab: React.FC<TabProps> = ({ data, onChange }) => {
-    
-    const getPesdLabel = (val: number) => {
+
+    const getPesdLabel = (val: number | null) => {
+        if (val === null) return "Da rispondere";
         const abs = Math.abs(val);
         if (val === 0) return "Né...né";
         if (abs === 1) return "Poco";
@@ -41,7 +43,16 @@ export const PesdTab: React.FC<TabProps> = ({ data, onChange }) => {
             
             <div className="grid grid-cols-1 gap-6">
                 {PESD_ITEMS.map((item, index) => (
-                    <div key={index} className="bg-slate-900 p-4 sm:p-6 rounded-xl shadow-lg border border-slate-800 hover:border-teal-500/30 transition-all">
+                    <div key={index} className={`p-4 sm:p-6 rounded-xl shadow-lg border transition-all ${
+                        data[index] === null
+                            ? 'bg-slate-900/70 border-orange-500/40 hover:border-orange-500/60'
+                            : 'bg-slate-900 border-slate-800 hover:border-teal-500/30'
+                    }`}>
+                        {data[index] === null && (
+                            <div className="mb-3 flex items-center gap-2 text-orange-400 text-xs font-bold">
+                                <AlertCircle size={13} /> Da rispondere
+                            </div>
+                        )}
                         {/* Intestazione Descrittori */}
                         <div className="flex justify-between text-sm font-semibold mb-6 items-end">
                             <span className="text-red-400 w-[40%] text-left leading-tight text-xs sm:text-sm">{item.left}</span>
@@ -58,7 +69,7 @@ export const PesdTab: React.FC<TabProps> = ({ data, onChange }) => {
                                 min={-4}
                                 max={4}
                                 step={1}
-                                value={data[index]}
+                                value={data[index] ?? 0}
                                 onChange={(e) => onChange(index, parseInt(e.target.value))}
                                 className="w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer accent-slate-200 z-10 relative focus:outline-none"
                             />
@@ -79,13 +90,18 @@ export const PesdTab: React.FC<TabProps> = ({ data, onChange }) => {
                         
                         <div className="text-center mt-5">
                             <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold border shadow-inner transition-all duration-300 ${
-                                data[index] < 0 ? 'bg-red-950/40 text-red-300 border-red-900/50' : 
-                                data[index] > 0 ? 'bg-green-950/40 text-green-300 border-green-900/50' : 
+                                data[index] === null ? 'bg-orange-950/30 text-orange-400 border-orange-800/50' :
+                                (data[index] as number) < 0 ? 'bg-red-950/40 text-red-300 border-red-900/50' :
+                                (data[index] as number) > 0 ? 'bg-green-950/40 text-green-300 border-green-900/50' :
                                 'bg-slate-800 text-slate-300 border-slate-700'
                             }`}>
-                                <span className="opacity-70 font-mono text-[10px]">INTENSITÀ:</span> 
+                                <span className="opacity-70 font-mono text-[10px]">INTENSITÀ:</span>
                                 <span className="uppercase tracking-wide">{getPesdLabel(data[index])}</span>
-                                <span className="bg-black/30 px-1.5 rounded text-[10px] ml-1 font-mono">{data[index] > 0 ? '+' : ''}{data[index]}</span>
+                                {data[index] !== null && (
+                                    <span className="bg-black/30 px-1.5 rounded text-[10px] ml-1 font-mono">
+                                        {(data[index] as number) > 0 ? '+' : ''}{data[index]}
+                                    </span>
+                                )}
                             </span>
                         </div>
                     </div>

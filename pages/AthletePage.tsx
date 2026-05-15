@@ -20,20 +20,20 @@ export const AthletePage = () => {
     phone: ''
   });
 
-  const [ippsData, setIppsData] = useState<number[]>(new Array(IPPS_ITEMS.length).fill(3));
-  const [tipiData, setTipiData] = useState<number[]>(new Array(TIPI_ITEMS.length).fill(4));
-  const [misData, setMisData] = useState<number[]>(new Array(MIS_ITEMS.length).fill(3));
-  const [erqData, setErqData] = useState<number[]>(new Array(ERQ_ITEMS.length).fill(4));
-  const [ppsData, setPpsData] = useState<number[]>(new Array(PPS_ITEMS.length).fill(4));
-  const [cfqData, setCfqData] = useState<number[]>(new Array(CFQ_ITEMS.length).fill(3));
-  const [bnsssData, setBnsssData] = useState<number[]>(new Array(BNSSS_ITEMS.length).fill(4));
-  const [seqData, setSeqData] = useState<number[]>(new Array(SEQ_ITEMS.length).fill(2));
-  const [mtsData, setMtsData] = useState<number[]>(new Array(MTS_ITEMS.length).fill(3));
-  const [ctData, setCtData] = useState<number[]>(new Array(CT_ITEMS.length).fill(3));
-  const [pesdData, setPesdData] = useState<number[]>(new Array(PESD_ITEMS.length).fill(0));
-  const [teiqueData, setTeiqueData] = useState<number[]>(new Array(TEIQUE_ITEMS.length).fill(4));
-  const [maiaData, setMaiaData] = useState<number[]>(new Array(MAIA_ITEMS.length).fill(2));
-  const [passionData, setPassionData] = useState<number[]>(new Array(PASSION_ITEMS.length).fill(3));
+  const [ippsData, setIppsData] = useState<(number | null)[]>(new Array(IPPS_ITEMS.length).fill(null));
+  const [tipiData, setTipiData] = useState<(number | null)[]>(new Array(TIPI_ITEMS.length).fill(null));
+  const [misData, setMisData] = useState<(number | null)[]>(new Array(MIS_ITEMS.length).fill(null));
+  const [erqData, setErqData] = useState<(number | null)[]>(new Array(ERQ_ITEMS.length).fill(null));
+  const [ppsData, setPpsData] = useState<(number | null)[]>(new Array(PPS_ITEMS.length).fill(null));
+  const [cfqData, setCfqData] = useState<(number | null)[]>(new Array(CFQ_ITEMS.length).fill(null));
+  const [bnsssData, setBnsssData] = useState<(number | null)[]>(new Array(BNSSS_ITEMS.length).fill(null));
+  const [seqData, setSeqData] = useState<(number | null)[]>(new Array(SEQ_ITEMS.length).fill(null));
+  const [mtsData, setMtsData] = useState<(number | null)[]>(new Array(MTS_ITEMS.length).fill(null));
+  const [ctData, setCtData] = useState<(number | null)[]>(new Array(CT_ITEMS.length).fill(null));
+  const [pesdData, setPesdData] = useState<(number | null)[]>(new Array(PESD_ITEMS.length).fill(null));
+  const [teiqueData, setTeiqueData] = useState<(number | null)[]>(new Array(TEIQUE_ITEMS.length).fill(null));
+  const [maiaData, setMaiaData] = useState<(number | null)[]>(new Array(MAIA_ITEMS.length).fill(null));
+  const [passionData, setPassionData] = useState<(number | null)[]>(new Array(PASSION_ITEMS.length).fill(null));
 
   const [activeTab, setActiveTab] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -91,6 +91,30 @@ export const AthletePage = () => {
     if (!profile.name.trim()) return "Il campo 'Nome e Cognome' è obbligatorio.";
     if (!profile.email.trim() && !profile.phone.trim()) return "È necessario inserire almeno un contatto (Email o Telefono).";
     if (tabs.length === 0) return "Nessun questionario selezionato da compilare (parametro link non valido).";
+
+    // C2: verifica che tutti gli item dei questionari attivi siano stati risposti
+    const questionnaires = [
+      { key: 'IPPS',    data: ippsData,    label: 'IPPS-24' },
+      { key: 'TIPI',    data: tipiData,    label: 'TIPI' },
+      { key: 'MIS',     data: misData,     label: 'MIS' },
+      { key: 'ERQ',     data: erqData,     label: 'ERQ' },
+      { key: 'PPS',     data: ppsData,     label: 'PPS-S' },
+      { key: 'CFQ',     data: cfqData,     label: 'CFQ' },
+      { key: 'BNSSS',   data: bnsssData,   label: 'BNSSS' },
+      { key: 'SEQ',     data: seqData,     label: 'SEQ' },
+      { key: 'MTS',     data: mtsData,     label: 'MTS' },
+      { key: 'CT',      data: ctData,      label: 'Sfida & Minaccia' },
+      { key: 'PESD',    data: pesdData,    label: 'PESD-Sport' },
+      { key: 'TEIQUE',  data: teiqueData,  label: 'TEIQue-SF' },
+      { key: 'MAIA',    data: maiaData,    label: 'MAIA' },
+      { key: 'PASSION', data: passionData, label: 'Passion Scale' },
+    ];
+    for (const q of questionnaires) {
+      if (isTestRequested(q.key) && q.data.some(v => v === null)) {
+        return `Completa tutti gli item del questionario ${q.label} prima di inviare.`;
+      }
+    }
+
     return null;
   };
 
@@ -115,20 +139,20 @@ export const AthletePage = () => {
         years_of_practice: profile.yearsOfPractice,
         email: profile.email,
         phone: profile.phone,
-        ipps: isTestRequested('IPPS') ? ippsData : null,
-        tipi: isTestRequested('TIPI') ? tipiData : null,
-        mis: isTestRequested('MIS') ? misData : null,
-        erq: isTestRequested('ERQ') ? erqData : null,
-        pps: isTestRequested('PPS') ? ppsData : null,
-        cfq: isTestRequested('CFQ') ? cfqData : null,
-        bnsss: isTestRequested('BNSSS') ? bnsssData : null,
-        seq: isTestRequested('SEQ') ? seqData : null,
-        mts: isTestRequested('MTS') ? mtsData : null,
-        ct: isTestRequested('CT') ? ctData : null,
-        pesd: isTestRequested('PESD') ? pesdData : null,
-        teique: isTestRequested('TEIQUE') ? teiqueData : null,
-        maia: isTestRequested('MAIA') ? maiaData : null,
-        passion: isTestRequested('PASSION') ? passionData : null
+        ipps: isTestRequested('IPPS') ? ippsData as number[] : null,
+        tipi: isTestRequested('TIPI') ? tipiData as number[] : null,
+        mis: isTestRequested('MIS') ? misData as number[] : null,
+        erq: isTestRequested('ERQ') ? erqData as number[] : null,
+        pps: isTestRequested('PPS') ? ppsData as number[] : null,
+        cfq: isTestRequested('CFQ') ? cfqData as number[] : null,
+        bnsss: isTestRequested('BNSSS') ? bnsssData as number[] : null,
+        seq: isTestRequested('SEQ') ? seqData as number[] : null,
+        mts: isTestRequested('MTS') ? mtsData as number[] : null,
+        ct: isTestRequested('CT') ? ctData as number[] : null,
+        pesd: isTestRequested('PESD') ? pesdData as number[] : null,
+        teique: isTestRequested('TEIQUE') ? teiqueData as number[] : null,
+        maia: isTestRequested('MAIA') ? maiaData as number[] : null,
+        passion: isTestRequested('PASSION') ? passionData as number[] : null
       });
 
       if (error) {
