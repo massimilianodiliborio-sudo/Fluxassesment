@@ -816,7 +816,7 @@ export const DashboardPage = () => {
                                                     <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs">T1</span>
                                                     {formatDateIt(t1Record?.created_at)}
                                                 </div>
-                                                {t1Record && <ResultsTab profile={toProfile(t1Record)} data={buildResultsData(t1Record, commonKeys)} />}
+                                                {t1Record && <ResultsTab profile={toProfile(t1Record)} data={buildResultsData(t1Record, commonKeys)} compareMode />}
                                             </div>
                                             <div>
                                                 <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-300">
@@ -828,6 +828,7 @@ export const DashboardPage = () => {
                                                         profile={toProfile(t2Record)}
                                                         data={buildResultsData(t2Record, commonKeys)}
                                                         previousData={t1Record ? buildResultsData(t1Record, commonKeys) : undefined}
+                                                        compareMode
                                                     />
                                                 )}
                                             </div>

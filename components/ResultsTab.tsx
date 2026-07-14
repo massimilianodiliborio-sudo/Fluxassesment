@@ -9,9 +9,16 @@ import { PESD_CATEGORIES, TEIQUE_REVERSE_ITEMS, TEIQUE_SUBSCALES, MAIA_REVERSE_I
 interface ResultsTabProps {
     profile: AthleteProfile;
     data: QuestionnaireData;
-    // Solo in modalità confronto: punteggi della somministrazione precedente,
-    // usati unicamente per l'annotazione "(era X)" — nessun calcolo cambia.
+    // Punteggi della somministrazione precedente, usati SOLO per l'annotazione
+    // "(era X)" — nessun calcolo cambia. Presente solo sulla colonna T2 (più
+    // recente): T1 non ha un precedente da mostrare.
     previousData?: QuestionnaireData;
+    // true per ENTRAMBE le colonne quando ResultsTab è usato nella vista di
+    // confronto — anche per T1, che non ha previousData. Controlla SOLO il
+    // layout (griglia, larghezze, margini, altezza): previousData e
+    // compareMode sono due cose diverse, "ho un valore precedente" non è
+    // lo stesso di "sono affiancato a un'altra colonna".
+    compareMode?: boolean;
 }
 
 const COLORS = {
@@ -195,21 +202,21 @@ const renderCompareLabel = (previousScores?: { val: number }[]) => (props: any) 
 const defaultBarLabel = { position: 'right' as const, fill: '#94a3b8', fontSize: 10, formatter: (v: number) => v.toFixed(2) };
 
 // Component for miniature charts
-const MiniChart = ({ data, title, domain, previousData }: { data: any[], title: string, domain: [number, number], previousData?: { val: number }[] }) => (
-    <div className={`bg-slate-900 p-4 rounded-xl shadow-lg border border-slate-800 flex flex-col ${previousData ? 'h-[320px]' : 'h-[280px]'}`}>
+const MiniChart = ({ data, title, domain, previousData, compareMode }: { data: any[], title: string, domain: [number, number], previousData?: { val: number }[], compareMode?: boolean }) => (
+    <div className={`bg-slate-900 p-4 rounded-xl shadow-lg border border-slate-800 flex flex-col ${compareMode ? 'h-[320px]' : 'h-[280px]'}`}>
         <h3 className="text-sm font-bold text-slate-200 mb-2 truncate" title={title}>{title}</h3>
         <div className="flex-1 min-h-0 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart layout="vertical" data={data} margin={{ top: 0, right: previousData ? 70 : 30, left: 10, bottom: 0 }}>
+                <BarChart layout="vertical" data={data} margin={{ top: 0, right: compareMode ? 70 : 30, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
                     <XAxis type="number" domain={domain} stroke={COLORS.text} tick={{fontSize: 10}} />
-                    <YAxis dataKey="name" type="category" width={previousData ? 90 : 110} tick={{fontSize: 10, fontWeight: 600, fill: COLORS.text}} stroke={COLORS.text} interval={0} />
+                    <YAxis dataKey="name" type="category" width={compareMode ? 90 : 110} tick={{fontSize: 10, fontWeight: 600, fill: COLORS.text}} stroke={COLORS.text} interval={0} />
                     <Tooltip
                         cursor={{fill: 'rgba(255,255,255,0.05)'}}
                         contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff', fontSize: '12px' }}
                         itemStyle={{ color: '#22d3ee', fontWeight: 'bold' }}
                     />
-                    <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={16} label={previousData ? renderCompareLabel(previousData) : defaultBarLabel}>
+                    <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={16} label={compareMode ? renderCompareLabel(previousData) : defaultBarLabel}>
                         {data.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
@@ -220,7 +227,7 @@ const MiniChart = ({ data, title, domain, previousData }: { data: any[], title: 
     </div>
 );
 
-export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data, previousData }) => {
+export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data, previousData, compareMode }) => {
 
     const results = useMemo(() => computeResults(data), [data]);
     const previousResults = useMemo(() => previousData ? computeResults(previousData) : null, [previousData]);
@@ -294,23 +301,26 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data, previousD
             </div>
 
             {/* Nuovi grafici in griglia moderna e compatta.
-                In modalità confronto (previousData presente) una sola colonna:
-                le due ResultsTab sono già affiancate da DashboardPage, quindi
-                qui dentro non c'è più spazio per 2-3 colonne di MiniChart. */}
-            <div className={previousData ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"}>
-                {(data.ipps && data.ipps.length > 0) && <MiniChart data={results.ippsScores} title="IPPS-24" domain={[1, 6]} previousData={previousResults?.ippsScores} />}
-                {(data.teique && data.teique.length > 0) && <MiniChart data={results.teiqueScores} title="TEIQue-SF" domain={[1, 7]} previousData={previousResults?.teiqueScores} />}
-                {(data.maia && data.maia.length > 0) && <MiniChart data={results.maiaScores} title="MAIA" domain={[0, 5]} previousData={previousResults?.maiaScores} />}
-                {(data.passion && data.passion.length > 0) && <MiniChart data={results.passionScores} title="The Passion Scale" domain={[1, 5]} previousData={previousResults?.passionScores} />}
-                {(data.tipi && data.tipi.length > 0) && <MiniChart data={results.tipiScores} title="TIPI" domain={[1, 7]} previousData={previousResults?.tipiScores} />}
-                {(data.mis && data.mis.length > 0) && <MiniChart data={results.misScores} title="MIS" domain={[1, 6]} previousData={previousResults?.misScores} />}
-                {(data.erq && data.erq.length > 0) && <MiniChart data={results.erqScores} title="ERQ" domain={[1, 7]} previousData={previousResults?.erqScores} />}
-                {(data.pps && data.pps.length > 0) && <MiniChart data={results.ppsScores} title="PPS-S" domain={[1, 7]} previousData={previousResults?.ppsScores} />}
-                {(data.cfq && data.cfq.length > 0) && <MiniChart data={results.cfqScores} title="CFQ" domain={[1, 5]} previousData={previousResults?.cfqScores} />}
-                {(data.bnsss && data.bnsss.length > 0) && <MiniChart data={results.bnsssScores} title="BNSSS" domain={[1, 7]} previousData={previousResults?.bnsssScores} />}
-                {(data.seq && data.seq.length > 0) && <MiniChart data={results.seqScores} title="SEQ" domain={[0, 4]} previousData={previousResults?.seqScores} />}
-                {(data.mts && data.mts.length > 0) && <MiniChart data={results.mtsScores} title="MTS" domain={[1, 5]} previousData={previousResults?.mtsScores} />}
-                {(data.ct && data.ct.length > 0) && <MiniChart data={results.ctScores} title="CT" domain={[1, 5]} previousData={previousResults?.ctScores} />}
+                In modalità confronto (compareMode) una sola colonna per
+                ENTRAMBE le colonne T1/T2: le due ResultsTab sono già
+                affiancate da DashboardPage, quindi qui dentro non c'è più
+                spazio per 2-3 colonne di MiniChart. T1 non ha previousData
+                ma ha comunque compareMode=true, così mantiene lo stesso
+                layout largo di T2 (l'unica differenza è l'annotazione "(era X)"). */}
+            <div className={compareMode ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"}>
+                {(data.ipps && data.ipps.length > 0) && <MiniChart data={results.ippsScores} title="IPPS-24" domain={[1, 6]} previousData={previousResults?.ippsScores} compareMode={compareMode} />}
+                {(data.teique && data.teique.length > 0) && <MiniChart data={results.teiqueScores} title="TEIQue-SF" domain={[1, 7]} previousData={previousResults?.teiqueScores} compareMode={compareMode} />}
+                {(data.maia && data.maia.length > 0) && <MiniChart data={results.maiaScores} title="MAIA" domain={[0, 5]} previousData={previousResults?.maiaScores} compareMode={compareMode} />}
+                {(data.passion && data.passion.length > 0) && <MiniChart data={results.passionScores} title="The Passion Scale" domain={[1, 5]} previousData={previousResults?.passionScores} compareMode={compareMode} />}
+                {(data.tipi && data.tipi.length > 0) && <MiniChart data={results.tipiScores} title="TIPI" domain={[1, 7]} previousData={previousResults?.tipiScores} compareMode={compareMode} />}
+                {(data.mis && data.mis.length > 0) && <MiniChart data={results.misScores} title="MIS" domain={[1, 6]} previousData={previousResults?.misScores} compareMode={compareMode} />}
+                {(data.erq && data.erq.length > 0) && <MiniChart data={results.erqScores} title="ERQ" domain={[1, 7]} previousData={previousResults?.erqScores} compareMode={compareMode} />}
+                {(data.pps && data.pps.length > 0) && <MiniChart data={results.ppsScores} title="PPS-S" domain={[1, 7]} previousData={previousResults?.ppsScores} compareMode={compareMode} />}
+                {(data.cfq && data.cfq.length > 0) && <MiniChart data={results.cfqScores} title="CFQ" domain={[1, 5]} previousData={previousResults?.cfqScores} compareMode={compareMode} />}
+                {(data.bnsss && data.bnsss.length > 0) && <MiniChart data={results.bnsssScores} title="BNSSS" domain={[1, 7]} previousData={previousResults?.bnsssScores} compareMode={compareMode} />}
+                {(data.seq && data.seq.length > 0) && <MiniChart data={results.seqScores} title="SEQ" domain={[0, 4]} previousData={previousResults?.seqScores} compareMode={compareMode} />}
+                {(data.mts && data.mts.length > 0) && <MiniChart data={results.mtsScores} title="MTS" domain={[1, 5]} previousData={previousResults?.mtsScores} compareMode={compareMode} />}
+                {(data.ct && data.ct.length > 0) && <MiniChart data={results.ctScores} title="CT" domain={[1, 5]} previousData={previousResults?.ctScores} compareMode={compareMode} />}
             </div>
 
             {/* PESD Chart */}
@@ -319,13 +329,13 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data, previousD
                     <h3 className="text-lg font-bold text-slate-200 mb-4">Profilo PESD (Psicobiosociale)</h3>
                     <div className="h-[400px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart layout="vertical" data={results.pesdScores} margin={{ top: 5, right: previousResults ? 70 : 30, left: previousResults ? 80 : 100, bottom: 5 }}>
+                            <BarChart layout="vertical" data={results.pesdScores} margin={{ top: 5, right: compareMode ? 70 : 30, left: compareMode ? 80 : 100, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke={COLORS.grid} />
                             <XAxis type="number" domain={[-4, 4]} ticks={[-4, -2, 0, 2, 4]} stroke={COLORS.text} tick={{fontSize: 10}} />
-                            <YAxis dataKey="name" type="category" width={previousResults ? 110 : 140} tick={{fontSize: 11, fontWeight: 600, fill: COLORS.text}} interval={0} stroke={COLORS.text} />
+                            <YAxis dataKey="name" type="category" width={compareMode ? 110 : 140} tick={{fontSize: 11, fontWeight: 600, fill: COLORS.text}} interval={0} stroke={COLORS.text} />
                             <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                             <ReferenceLine x={0} stroke="#94a3b8" />
-                            <Bar dataKey="val" barSize={16} label={previousResults ? renderCompareLabel(previousResults.pesdScores) : defaultBarLabel}>
+                            <Bar dataKey="val" barSize={16} label={compareMode ? renderCompareLabel(previousResults?.pesdScores) : defaultBarLabel}>
                                 {results.pesdScores.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.fill} />
                                 ))}
