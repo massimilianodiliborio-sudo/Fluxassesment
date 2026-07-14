@@ -162,19 +162,32 @@ const computeResults = (data: QuestionnaireData) => {
 };
 
 // Renderer di label custom per le colonne di confronto: valore attuale in
-// grassetto + valore precedente piccolo e grigio tra parentesi, sullo stesso
-// asse orizzontale. Nessuna freccia, nessun colore di delta, nessuna percentuale.
+// grassetto sopra, valore precedente piccolo e grigio SOTTO (impilati in
+// verticale, non affiancati) così restano dentro il bordo della card invece
+// di essere tagliati. Nessuna freccia, nessun colore di delta, nessuna percentuale.
 const renderCompareLabel = (previousScores?: { val: number }[]) => (props: any) => {
     const { x, y, width, height, value, index } = props;
     const prevVal = previousScores?.[index]?.val;
-    const cy = y + height / 2 + 4;
+    const baseX = x + width + 6;
+    const cy = y + height / 2;
+
+    if (typeof prevVal !== 'number') {
+        return (
+            <text x={baseX} y={cy + 4} fill="#94a3b8" fontSize={10} fontWeight="bold">
+                {Number(value).toFixed(2)}
+            </text>
+        );
+    }
+
     return (
-        <text x={x + width + 6} y={cy}>
-            <tspan fill="#94a3b8" fontSize={10} fontWeight="bold">{Number(value).toFixed(2)}</tspan>
-            {typeof prevVal === 'number' && (
-                <tspan fill="#64748b" fontSize={9} dx={4}>{`(era ${prevVal.toFixed(2)})`}</tspan>
-            )}
-        </text>
+        <g>
+            <text x={baseX} y={cy + 2} fill="#94a3b8" fontSize={10} fontWeight="bold">
+                {Number(value).toFixed(2)}
+            </text>
+            <text x={baseX} y={cy + 13} fill="#64748b" fontSize={9}>
+                {`(era ${prevVal.toFixed(2)})`}
+            </text>
+        </g>
     );
 };
 
@@ -183,14 +196,14 @@ const defaultBarLabel = { position: 'right' as const, fill: '#94a3b8', fontSize:
 
 // Component for miniature charts
 const MiniChart = ({ data, title, domain, previousData }: { data: any[], title: string, domain: [number, number], previousData?: { val: number }[] }) => (
-    <div className="bg-slate-900 p-4 rounded-xl shadow-lg border border-slate-800 flex flex-col h-[280px]">
+    <div className={`bg-slate-900 p-4 rounded-xl shadow-lg border border-slate-800 flex flex-col ${previousData ? 'h-[320px]' : 'h-[280px]'}`}>
         <h3 className="text-sm font-bold text-slate-200 mb-2 truncate" title={title}>{title}</h3>
         <div className="flex-1 min-h-0 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart layout="vertical" data={data} margin={{ top: 0, right: previousData ? 70 : 30, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
                     <XAxis type="number" domain={domain} stroke={COLORS.text} tick={{fontSize: 10}} />
-                    <YAxis dataKey="name" type="category" width={110} tick={{fontSize: 10, fontWeight: 600, fill: COLORS.text}} stroke={COLORS.text} interval={0} />
+                    <YAxis dataKey="name" type="category" width={previousData ? 90 : 110} tick={{fontSize: 10, fontWeight: 600, fill: COLORS.text}} stroke={COLORS.text} interval={0} />
                     <Tooltip
                         cursor={{fill: 'rgba(255,255,255,0.05)'}}
                         contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff', fontSize: '12px' }}
@@ -280,8 +293,11 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data, previousD
                 </button>
             </div>
 
-            {/* Nuovi grafici in griglia moderna e compatta */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* Nuovi grafici in griglia moderna e compatta.
+                In modalità confronto (previousData presente) una sola colonna:
+                le due ResultsTab sono già affiancate da DashboardPage, quindi
+                qui dentro non c'è più spazio per 2-3 colonne di MiniChart. */}
+            <div className={previousData ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"}>
                 {(data.ipps && data.ipps.length > 0) && <MiniChart data={results.ippsScores} title="IPPS-24" domain={[1, 6]} previousData={previousResults?.ippsScores} />}
                 {(data.teique && data.teique.length > 0) && <MiniChart data={results.teiqueScores} title="TEIQue-SF" domain={[1, 7]} previousData={previousResults?.teiqueScores} />}
                 {(data.maia && data.maia.length > 0) && <MiniChart data={results.maiaScores} title="MAIA" domain={[0, 5]} previousData={previousResults?.maiaScores} />}
@@ -303,10 +319,10 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data, previousD
                     <h3 className="text-lg font-bold text-slate-200 mb-4">Profilo PESD (Psicobiosociale)</h3>
                     <div className="h-[400px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart layout="vertical" data={results.pesdScores} margin={{ top: 5, right: previousResults ? 70 : 30, left: 100, bottom: 5 }}>
+                            <BarChart layout="vertical" data={results.pesdScores} margin={{ top: 5, right: previousResults ? 70 : 30, left: previousResults ? 80 : 100, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke={COLORS.grid} />
                             <XAxis type="number" domain={[-4, 4]} ticks={[-4, -2, 0, 2, 4]} stroke={COLORS.text} tick={{fontSize: 10}} />
-                            <YAxis dataKey="name" type="category" width={140} tick={{fontSize: 11, fontWeight: 600, fill: COLORS.text}} interval={0} stroke={COLORS.text} />
+                            <YAxis dataKey="name" type="category" width={previousResults ? 110 : 140} tick={{fontSize: 11, fontWeight: 600, fill: COLORS.text}} interval={0} stroke={COLORS.text} />
                             <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                             <ReferenceLine x={0} stroke="#94a3b8" />
                             <Bar dataKey="val" barSize={16} label={previousResults ? renderCompareLabel(previousResults.pesdScores) : defaultBarLabel}>
