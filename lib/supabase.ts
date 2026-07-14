@@ -23,9 +23,6 @@ const SUPABASE_URL = env.VITE_SUPABASE_URL || "";
 // 2. CHIAVE DI SICUREZZA (ANON KEY)
 const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || "";
 
-// 3. PASSWORD DASHBOARD
-export const ADMIN_PASSWORD = env.VITE_ADMIN_PASSWORD || "MdleAdl010108";
-
 // ==============================================================================
 
 // Verifica configurazione
@@ -97,12 +94,26 @@ if (isConfigured) {
                     }
                 })
             };
+        },
+        // Stub auth: nessun backend reale in modalità demo/offline, ma evita
+        // che la dashboard vada in crash chiamando supabase.auth.* su undefined.
+        auth: {
+            signInWithPassword: (_credentials: { email: string; password: string }) => {
+                return Promise.resolve({
+                    data: { session: null, user: null },
+                    error: { message: "Autenticazione non disponibile in modalità demo/offline." }
+                });
+            },
+            signOut: () => Promise.resolve({ error: null }),
+            getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+            onAuthStateChange: (_callback: (event: string, session: any) => void) => {
+                return { data: { subscription: { unsubscribe: () => {} } } };
+            }
         }
     } as any;
 }
 
 export const getEnvVar = (key: string): string => {
-    if (key === 'VITE_ADMIN_PASSWORD') return ADMIN_PASSWORD;
     if (key === 'VITE_SUPABASE_URL') return SUPABASE_URL;
     if (key === 'VITE_SUPABASE_ANON_KEY') return SUPABASE_ANON_KEY;
     return '';

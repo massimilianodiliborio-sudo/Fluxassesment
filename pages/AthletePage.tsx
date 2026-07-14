@@ -39,7 +39,8 @@ export const AthletePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
+  const [consentGiven, setConsentGiven] = useState(false);
+
   // State per gestire l'apertura del pannello dati su mobile — M6: chiuso di default
   const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
 
@@ -125,6 +126,8 @@ export const AthletePage = () => {
       }
     }
 
+    if (!consentGiven) return "Devi accettare l'informativa sulla privacy per poter inviare l'assessment.";
+
     return null;
   };
 
@@ -162,7 +165,9 @@ export const AthletePage = () => {
         pesd: isTestRequested('PESD') ? pesdData as number[] : null,
         teique: isTestRequested('TEIQUE') ? teiqueData as number[] : null,
         maia: isTestRequested('MAIA') ? maiaData as number[] : null,
-        passion: isTestRequested('PASSION') ? passionData as number[] : null
+        passion: isTestRequested('PASSION') ? passionData as number[] : null,
+        consent_given: consentGiven,
+        consent_at: new Date().toISOString()
       });
 
       if (error) {
@@ -376,6 +381,77 @@ export const AthletePage = () => {
                     {tabs.find(t => t.id === activeTab)?.component || (
                         <div className="text-center text-slate-500 py-10">Nessun questionario selezionato</div>
                     )}
+
+                    {/* Informativa privacy e consenso GDPR — obbligatoria prima dell'invio */}
+                    <div className="mt-8 bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+                        <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wide">Informativa sulla Privacy</h3>
+                        <div className="max-h-64 overflow-y-auto bg-slate-950/50 border border-slate-800 rounded-lg p-4 text-xs text-slate-400 leading-relaxed whitespace-pre-line scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+{`INFORMATIVA SUL TRATTAMENTO DEI DATI PERSONALI
+(artt. 13 e 9 del Regolamento UE 2016/679 – GDPR)
+
+TITOLARE DEL TRATTAMENTO
+Dr. Massimiliano Di Liborio, Psicologo–Psicoterapeuta, iscritto all'Ordine degli
+Psicologi della Regione Abruzzo con n. 2401.
+Centro Medico Abaton, Via Caravaggio 127, Pescara.
+Contatto per l'esercizio dei diritti: massimiliano.diliborio@gmail.com
+
+DATI RACCOLTI
+Dati identificativi e di contatto (nome e cognome, email, telefono), dati relativi
+all'attività sportiva (disciplina, anni di pratica) e le risposte ai questionari
+psicologici somministrati. Le risposte ai questionari costituiscono dati relativi
+alla salute, appartenenti alle categorie particolari di cui all'art. 9 GDPR.
+
+FINALITÀ
+I dati sono trattati esclusivamente per la valutazione e il sostegno psicologico
+in ambito sportivo, nell'ambito del rapporto professionale tra lo psicologo e
+l'atleta, e per l'elaborazione dei profili psicometrici funzionali a tale attività.
+
+BASE GIURIDICA
+Il trattamento dei dati relativi alla salute avviene sulla base del suo consenso
+esplicito, ai sensi dell'art. 9, par. 2, lett. a) del GDPR. Il conferimento dei
+dati è facoltativo, ma senza di essi non è possibile procedere alla valutazione
+psicologica.
+
+MODALITÀ E LUOGO DEL TRATTAMENTO
+I dati sono raccolti tramite questa applicazione web e conservati su infrastruttura
+cloud fornita da Supabase e Vercel, che agiscono in qualità di responsabili del
+trattamento. Il trattamento può comportare il trasferimento dei dati verso Paesi
+terzi, effettuato sulla base delle garanzie previste dal Capo V del GDPR.
+I dati sono accessibili al solo Titolare, tenuto al segreto professionale ai sensi
+dell'art. 11 del Codice Deontologico degli Psicologi Italiani.
+
+CONSERVAZIONE
+I dati sono conservati per il tempo necessario alle finalità indicate e comunque
+per 10 anni dalla conclusione del rapporto professionale, in conformità agli
+obblighi di conservazione della documentazione professionale dello psicologo.
+Decorso tale termine i dati sono cancellati.
+
+DIRITTI DELL'INTERESSATO
+Lei ha diritto di chiedere in ogni momento l'accesso ai suoi dati, la loro rettifica
+o cancellazione, la limitazione del trattamento, la portabilità dei dati, e di
+opporsi al trattamento. Ha inoltre diritto di revocare il consenso in qualsiasi
+momento, senza che ciò pregiudichi la liceità del trattamento effettuato prima
+della revoca. Per esercitare tali diritti può scrivere a
+massimiliano.diliborio@gmail.com.
+Ha altresì diritto di proporre reclamo al Garante per la protezione dei dati
+personali (www.garanteprivacy.it).
+
+MINORI
+Se l'interessato ha meno di 18 anni, il consenso deve essere prestato da chi esercita
+la responsabilità genitoriale.`}
+                        </div>
+                        <label className="flex items-start gap-3 pt-2 border-t border-slate-800 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={consentGiven}
+                                onChange={(e) => { setConsentGiven(e.target.checked); if (errorMsg) setErrorMsg(null); }}
+                                className="mt-1 w-4 h-4 accent-cyan-500 shrink-0"
+                            />
+                            <span className="text-xs text-slate-300">
+                                Dichiaro di aver letto l'informativa e presto il mio consenso esplicito al trattamento dei miei dati personali, inclusi i dati relativi alla salute, per le finalità sopra indicate. *
+                            </span>
+                        </label>
+                    </div>
                 </div>
             </div>
 

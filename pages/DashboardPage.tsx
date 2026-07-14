@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Target, Search, Lock, Users, RefreshCw, Trash2, Filter, ChevronLeft, LogOut, Loader2, Download, Upload, Link as LinkIcon } from 'lucide-react';
-import { supabase, getEnvVar } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { AssessmentRecord } from '../types';
 import { ResultsTab } from '../components/ResultsTab';
 import { IppsTab, TipiTab, MisTab, ErqTab, PpsTab, CfqTab, BnsssTab, SeqTab, MtsTab, CtTab, TeiqueTab, MaiaTab, PassionTab } from '../components/Questionnaires';
@@ -13,7 +13,10 @@ import {
 
 export const DashboardPage = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isCheckingSession, setIsCheckingSession] = useState(true);
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [loginError, setLoginError] = useState<string | null>(null);
     const [records, setRecords] = useState<AssessmentRecord[]>([]);
     const [filteredRecords, setFilteredRecords] = useState<AssessmentRecord[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -141,22 +144,32 @@ export const DashboardPage = () => {
         reader.readAsText(file);
     };
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        const envPass = getEnvVar('VITE_ADMIN_PASSWORD') || 'admin';
-        if (password === envPass) {
-            setIsAuthenticated(true);
-            fetchRecords();
-        } else {
-            alert("Password errata");
+        setLoginError(null);
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            setLoginError(error.message || "Credenziali non valide.");
         }
     };
 
-    const handleLogout = () => {
-        setIsAuthenticated(false);
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         setPassword('');
         setSelectedId(null);
     };
+
+    // Ripristina la sessione al caricamento e resta sincronizzato con login/logout
+    useEffect(() => {
+        supabase.auth.getSession().then(() => setIsCheckingSession(false));
+
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+            setIsAuthenticated(!!session);
+            if (session) fetchRecords();
+        });
+
+        return () => authListener?.subscription?.unsubscribe();
+    }, []);
 
     const applyFilters = (data: AssessmentRecord[], search: string, disc: string) => {
         let res = data;
@@ -248,6 +261,14 @@ export const DashboardPage = () => {
         }
     };
 
+    if (isCheckingSession) {
+        return (
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+                <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+            </div>
+        );
+    }
+
     if (!isAuthenticated) {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -256,6 +277,18 @@ export const DashboardPage = () => {
                         <Lock size={48} />
                     </div>
                     <h2 className="text-2xl font-bold text-center text-white mb-6">Accesso Psicologo</h2>
+                    {loginError && (
+                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center">
+                            {loginError}
+                        </div>
+                    )}
+                    <input
+                        type="email"
+                        placeholder="Email"
+                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg mb-4 outline-none focus:ring-1 focus:ring-cyan-500 text-white placeholder-slate-600"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                    />
                     <input
                         type="password"
                         placeholder="Password Amministratore"
@@ -267,7 +300,7 @@ export const DashboardPage = () => {
                         Entra
                     </button>
                     <div className="mt-4 text-center">
-                        <p className="text-xs text-slate-500">Password richiesta per accedere ai dati sensibili.</p>
+                        <p className="text-xs text-slate-500">Accesso riservato al professionista per i dati sensibili.</p>
                     </div>
                     <div className="mt-6 text-center border-t border-slate-800 pt-4">
                         <a href="#/compila" className="text-sm text-slate-400 hover:text-white underline transition-colors">Torna al questionario</a>

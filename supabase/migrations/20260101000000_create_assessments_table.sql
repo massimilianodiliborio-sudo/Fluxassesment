@@ -3,6 +3,12 @@
 -- ============================================================
 -- This migration creates the main assessments table with all
 -- questionnaire columns including TEIQue-SF, MAIA, and Passion Scale.
+--
+-- NOTE: this file is documentation of the intended schema/policies,
+-- it is not executed automatically by anything. The live database
+-- was created before consent_given/consent_at existed and before
+-- the SELECT/DELETE policies were moved to `authenticated`; those
+-- changes must be applied by hand via migrations_da_eseguire.sql.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS assessments (
@@ -65,23 +71,27 @@ CREATE TABLE IF NOT EXISTS assessments (
     -- Questionnaire 14: Passion Scale (12 items, scale 1-5)
     -- Subscales: Passione Armoniosa, Passione Ossessiva
     -- No reverse items
-    passion     INTEGER[]
+    passion     INTEGER[],
+
+    -- GDPR consent (art. 9): given by the athlete before submitting
+    consent_given   BOOLEAN,
+    consent_at      TIMESTAMPTZ
 );
 
 -- Enable Row Level Security (recommended for Supabase)
 ALTER TABLE assessments ENABLE ROW LEVEL SECURITY;
 
--- Policy: Allow anonymous inserts (athletes submitting questionnaires)
+-- Policy: Allow anonymous inserts (athletes submitting questionnaires, no login)
 CREATE POLICY "Allow anonymous inserts" ON assessments
     FOR INSERT TO anon WITH CHECK (true);
 
--- Policy: Allow authenticated reads (psychologist dashboard)
+-- Policy: Allow authenticated reads (psychologist dashboard, logged in via Supabase Auth)
 CREATE POLICY "Allow authenticated reads" ON assessments
-    FOR SELECT TO anon USING (true);
+    FOR SELECT TO authenticated USING (true);
 
--- Policy: Allow authenticated deletes (psychologist dashboard)
+-- Policy: Allow authenticated deletes (psychologist dashboard, logged in via Supabase Auth)
 CREATE POLICY "Allow authenticated deletes" ON assessments
-    FOR DELETE TO anon USING (true);
+    FOR DELETE TO authenticated USING (true);
 
 -- Index on athlete name for search
 CREATE INDEX IF NOT EXISTS idx_assessments_athlete_name ON assessments (athlete_name);
