@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell
 } from 'recharts';
 import { Download, AlertCircle } from 'lucide-react';
 import { AthleteProfile, QuestionnaireData } from '../types';
@@ -9,6 +9,9 @@ import { PESD_CATEGORIES, TEIQUE_REVERSE_ITEMS, TEIQUE_SUBSCALES, MAIA_REVERSE_I
 interface ResultsTabProps {
     profile: AthleteProfile;
     data: QuestionnaireData;
+    // Solo in modalità confronto: punteggi della somministrazione precedente,
+    // usati unicamente per l'annotazione "(era X)" — nessun calcolo cambia.
+    previousData?: QuestionnaireData;
 }
 
 const COLORS = {
@@ -32,22 +35,168 @@ const mean = (indices: number[], values: number[], reverseIndices: number[] = []
     return sum / indices.length;
 };
 
+// Calcolo punteggi — invariato rispetto a prima, solo estratto in una funzione
+// pura così può essere applicato sia ai dati correnti sia (in modalità
+// confronto) a quelli della somministrazione precedente, senza duplicare le formule.
+const computeResults = (data: QuestionnaireData) => {
+    // IPPS (1-6)
+    const ippsScores = [
+        { name: '▲ Prep. Gara', val: mean([0, 8, 16], data.ipps), fill: COLORS.positive },
+        { name: '▲ Self-talk', val: mean([1, 9, 17], data.ipps), fill: COLORS.positive },
+        { name: '▼ Ansia Cogn.', val: mean([2, 10, 18], data.ipps), fill: COLORS.negative },
+        { name: '▲ Fiducia', val: mean([3, 11, 19], data.ipps), fill: COLORS.positive },
+        { name: '▲ Goal-setting', val: mean([4, 12, 20], data.ipps), fill: COLORS.positive },
+        { name: '▲ Ctrl Arousal', val: mean([5, 13, 21], data.ipps), fill: COLORS.positive },
+        { name: '▲ Pratica Ment.', val: mean([6, 14, 22], data.ipps), fill: COLORS.positive },
+        { name: '▼ Dist. Conc.', val: mean([7, 15, 23], data.ipps), fill: COLORS.negative },
+    ];
+
+    // TIPI (1-7) => Base: 8
+    const tipiScores = [
+        { name: '▲ Estrovers.', val: mean([0, 5], data.tipi || [], [5], 8), fill: COLORS.positive },
+        { name: '▲ Amabilità', val: mean([6, 1], data.tipi || [], [1], 8), fill: COLORS.positive },
+        { name: '▲ Coscienzios.', val: mean([2, 7], data.tipi || [], [7], 8), fill: COLORS.positive },
+        { name: '▲ Stab. Emot.', val: mean([8, 3], data.tipi || [], [3], 8), fill: COLORS.positive },
+        { name: '▲ Aper. Mentale', val: mean([4, 9], data.tipi || [], [9], 8), fill: COLORS.positive },
+    ];
+
+    // MIS (1-6) => Base: 7
+    const misScores = [
+        { name: '▲ AWA', val: mean([0, 3, 6], data.mis || []), fill: COLORS.positive },
+        { name: '▲ ACC', val: mean([1, 4, 7], data.mis || [], [1, 4, 7], 7), fill: COLORS.positive },
+        { name: '▲ REF', val: mean([2, 5, 8], data.mis || []), fill: COLORS.positive },
+    ];
+
+    // ERQ (1-7)
+    const erqScores = [
+        { name: '▲ Ristruttur.', val: mean([1, 3, 5], data.erq || []), fill: COLORS.positive },
+        { name: '▼ Soppressione', val: mean([0, 2, 4], data.erq || []), fill: COLORS.negative },
+    ];
+
+    // PPS-S (1-7)
+    const ppsScores = [
+        { name: '▼ SOP', val: mean([0, 3, 6], data.pps || []), fill: COLORS.negative },
+        { name: '▼ SPP', val: mean([1, 4, 7], data.pps || []), fill: COLORS.negative },
+        { name: '▼ OOP', val: mean([2, 5, 8], data.pps || []), fill: COLORS.negative },
+    ];
+
+    // CFQ (1-5)
+    const cfqScores = [
+        { name: '▲ Su Problema', val: mean([0, 3, 6], data.cfq || []), fill: COLORS.positive },
+        { name: '▲ Su Emozione', val: mean([1, 4, 7], data.cfq || []), fill: COLORS.positive },
+        { name: '▼ Di Evitament.', val: mean([2, 5, 8], data.cfq || []), fill: COLORS.negative },
+    ];
+
+    // BNSSS (1-7) => Base: 8
+    const bnsssScores = [
+        { name: '▲ Competenza', val: mean([1, 4, 7], data.bnsss || [], [1, 4, 7], 8), fill: COLORS.positive },
+        { name: '▲ Autonomia', val: mean([0, 3, 6], data.bnsss || []), fill: COLORS.positive },
+        { name: '▲ Relazione', val: mean([2, 5, 8], data.bnsss || []), fill: COLORS.positive },
+    ];
+
+    // SEQ (0-4)
+    const seqScores = [
+        { name: '▼ Ansia', val: data.seq ? data.seq[0] : 0, fill: COLORS.negative },
+        { name: '▼ Scoraggiam.', val: data.seq ? data.seq[1] : 0, fill: COLORS.negative },
+        { name: '▲ Eccitazione', val: data.seq ? data.seq[2] : 0, fill: COLORS.positive },
+        { name: '▼ Rabbia', val: data.seq ? data.seq[3] : 0, fill: COLORS.negative },
+        { name: '▲ Felicità', val: data.seq ? data.seq[4] : 0, fill: COLORS.positive },
+    ];
+
+    // MTS (1-5)
+    const mtsTotal = mean([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], data.mts || []);
+    const mtsScores = [
+        { name: '▲ Mental Toughness', val: mtsTotal, fill: COLORS.positive }
+    ];
+
+    // CT (1-5)
+    const ctScores = [
+        { name: '▲ Sfida', val: mean([0, 3, 4, 7, 9], data.ct || []), fill: COLORS.positive },
+        { name: '▼ Minaccia', val: mean([1, 2, 5, 6, 8], data.ct || []), fill: COLORS.negative }
+    ];
+
+    // TEIQue-SF (1-7) => Base: 8
+    const teiqueTotal = mean(Array.from({length: 30}, (_, i) => i), data.teique || [], TEIQUE_REVERSE_ITEMS, 8);
+    const teiqueScores = [
+        { name: '▲ Benessere', val: mean(TEIQUE_SUBSCALES.well_being, data.teique || [], TEIQUE_REVERSE_ITEMS, 8), fill: COLORS.positive },
+        { name: '▲ Autocontrollo', val: mean(TEIQUE_SUBSCALES.self_control, data.teique || [], TEIQUE_REVERSE_ITEMS, 8), fill: COLORS.positive },
+        { name: '▲ Emotività', val: mean(TEIQUE_SUBSCALES.emotionality, data.teique || [], TEIQUE_REVERSE_ITEMS, 8), fill: COLORS.positive },
+        { name: '▲ Socievolezza', val: mean(TEIQUE_SUBSCALES.sociability, data.teique || [], TEIQUE_REVERSE_ITEMS, 8), fill: COLORS.positive },
+        { name: '▲ TEI GLOBALE', val: teiqueTotal, fill: COLORS.pesd }
+    ];
+
+    // MAIA (0-5) => Base: 5
+    const maiaScores = [
+        { name: '▲ Noticing', val: mean(MAIA_SUBSCALES.noticing, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
+        { name: '▲ Not-Distracting', val: mean(MAIA_SUBSCALES.not_distracting, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
+        { name: '▲ Not-Worrying', val: mean(MAIA_SUBSCALES.not_worrying, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
+        { name: '▲ Att. Regulat.', val: mean(MAIA_SUBSCALES.attention_regulation, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
+        { name: '▲ Emot. Aware.', val: mean(MAIA_SUBSCALES.emotional_awareness, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
+        { name: '▲ Self-Regulat.', val: mean(MAIA_SUBSCALES.self_regulation, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
+        { name: '▲ Body Listen.', val: mean(MAIA_SUBSCALES.body_listening, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
+        { name: '▲ Trusting', val: mean(MAIA_SUBSCALES.trusting, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive }
+    ];
+
+    // PASSION (1-5)
+    const passionScores = [
+        { name: '▲ Armoniosa', val: mean(PASSION_SUBSCALES.harmonious, data.passion || []), fill: COLORS.positive },
+        { name: '▼ Ossessiva', val: mean(PASSION_SUBSCALES.obsessive, data.passion || []), fill: COLORS.negative }
+    ];
+
+    // PESD Calculation
+    const pesdScores = PESD_CATEGORIES.map((cat, i) => {
+        const indices = [i, i + 10, i + 20];
+        const val = mean(indices, data.pesd);
+        return { name: cat, val: val, fill: COLORS.pesd };
+    });
+
+    // PESD Total
+    const pesdTotal = pesdScores.reduce((acc, curr) => acc + curr.val, 0) / (pesdScores.length || 1);
+    pesdScores.push({ name: 'PESD Totale', val: pesdTotal, fill: '#d8b4fe' });
+
+    return {
+        ippsScores, tipiScores, misScores, erqScores, ppsScores, cfqScores,
+        bnsssScores, seqScores, mtsScores, ctScores, pesdScores,
+        teiqueScores, maiaScores, passionScores
+    };
+};
+
+// Renderer di label custom per le colonne di confronto: valore attuale in
+// grassetto + valore precedente piccolo e grigio tra parentesi, sullo stesso
+// asse orizzontale. Nessuna freccia, nessun colore di delta, nessuna percentuale.
+const renderCompareLabel = (previousScores?: { val: number }[]) => (props: any) => {
+    const { x, y, width, height, value, index } = props;
+    const prevVal = previousScores?.[index]?.val;
+    const cy = y + height / 2 + 4;
+    return (
+        <text x={x + width + 6} y={cy}>
+            <tspan fill="#94a3b8" fontSize={10} fontWeight="bold">{Number(value).toFixed(2)}</tspan>
+            {typeof prevVal === 'number' && (
+                <tspan fill="#64748b" fontSize={9} dx={4}>{`(era ${prevVal.toFixed(2)})`}</tspan>
+            )}
+        </text>
+    );
+};
+
+// Label di default (identica a quella usata da sempre nella vista singola)
+const defaultBarLabel = { position: 'right' as const, fill: '#94a3b8', fontSize: 10, formatter: (v: number) => v.toFixed(2) };
+
 // Component for miniature charts
-const MiniChart = ({ data, title, domain }: { data: any[], title: string, domain: [number, number] }) => (
+const MiniChart = ({ data, title, domain, previousData }: { data: any[], title: string, domain: [number, number], previousData?: { val: number }[] }) => (
     <div className="bg-slate-900 p-4 rounded-xl shadow-lg border border-slate-800 flex flex-col h-[280px]">
         <h3 className="text-sm font-bold text-slate-200 mb-2 truncate" title={title}>{title}</h3>
         <div className="flex-1 min-h-0 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart layout="vertical" data={data} margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
+                <BarChart layout="vertical" data={data} margin={{ top: 0, right: previousData ? 70 : 30, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
                     <XAxis type="number" domain={domain} stroke={COLORS.text} tick={{fontSize: 10}} />
                     <YAxis dataKey="name" type="category" width={110} tick={{fontSize: 10, fontWeight: 600, fill: COLORS.text}} stroke={COLORS.text} interval={0} />
-                    <Tooltip 
-                        cursor={{fill: 'rgba(255,255,255,0.05)'}} 
+                    <Tooltip
+                        cursor={{fill: 'rgba(255,255,255,0.05)'}}
                         contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff', fontSize: '12px' }}
                         itemStyle={{ color: '#22d3ee', fontWeight: 'bold' }}
                     />
-                    <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={16} label={{ position: 'right', fill: '#94a3b8', fontSize: 10, formatter: (v: number) => v.toFixed(2) }}>
+                    <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={16} label={previousData ? renderCompareLabel(previousData) : defaultBarLabel}>
                         {data.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
@@ -58,130 +207,10 @@ const MiniChart = ({ data, title, domain }: { data: any[], title: string, domain
     </div>
 );
 
-export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data }) => {
-    
-    const results = useMemo(() => {
-        // IPPS (1-6)
-        const ippsScores = [
-            { name: '▲ Prep. Gara', val: mean([0, 8, 16], data.ipps), fill: COLORS.positive },
-            { name: '▲ Self-talk', val: mean([1, 9, 17], data.ipps), fill: COLORS.positive },
-            { name: '▼ Ansia Cogn.', val: mean([2, 10, 18], data.ipps), fill: COLORS.negative },
-            { name: '▲ Fiducia', val: mean([3, 11, 19], data.ipps), fill: COLORS.positive },
-            { name: '▲ Goal-setting', val: mean([4, 12, 20], data.ipps), fill: COLORS.positive },
-            { name: '▲ Ctrl Arousal', val: mean([5, 13, 21], data.ipps), fill: COLORS.positive },
-            { name: '▲ Pratica Ment.', val: mean([6, 14, 22], data.ipps), fill: COLORS.positive },
-            { name: '▼ Dist. Conc.', val: mean([7, 15, 23], data.ipps), fill: COLORS.negative },
-        ];
+export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data, previousData }) => {
 
-        // TIPI (1-7) => Base: 8
-        const tipiScores = [
-            { name: '▲ Estrovers.', val: mean([0, 5], data.tipi || [], [5], 8), fill: COLORS.positive },
-            { name: '▲ Amabilità', val: mean([6, 1], data.tipi || [], [1], 8), fill: COLORS.positive },
-            { name: '▲ Coscienzios.', val: mean([2, 7], data.tipi || [], [7], 8), fill: COLORS.positive },
-            { name: '▲ Stab. Emot.', val: mean([8, 3], data.tipi || [], [3], 8), fill: COLORS.positive },
-            { name: '▲ Aper. Mentale', val: mean([4, 9], data.tipi || [], [9], 8), fill: COLORS.positive },
-        ];
-
-        // MIS (1-6) => Base: 7
-        const misScores = [
-            { name: '▲ AWA', val: mean([0, 3, 6], data.mis || []), fill: COLORS.positive },
-            { name: '▲ ACC', val: mean([1, 4, 7], data.mis || [], [1, 4, 7], 7), fill: COLORS.positive },
-            { name: '▲ REF', val: mean([2, 5, 8], data.mis || []), fill: COLORS.positive },
-        ];
-
-        // ERQ (1-7)
-        const erqScores = [
-            { name: '▲ Ristruttur.', val: mean([1, 3, 5], data.erq || []), fill: COLORS.positive },
-            { name: '▼ Soppressione', val: mean([0, 2, 4], data.erq || []), fill: COLORS.negative },
-        ];
-
-        // PPS-S (1-7)
-        const ppsScores = [
-            { name: '▼ SOP', val: mean([0, 3, 6], data.pps || []), fill: COLORS.negative },
-            { name: '▼ SPP', val: mean([1, 4, 7], data.pps || []), fill: COLORS.negative },
-            { name: '▼ OOP', val: mean([2, 5, 8], data.pps || []), fill: COLORS.negative },
-        ];
-
-        // CFQ (1-5)
-        const cfqScores = [
-            { name: '▲ Su Problema', val: mean([0, 3, 6], data.cfq || []), fill: COLORS.positive },
-            { name: '▲ Su Emozione', val: mean([1, 4, 7], data.cfq || []), fill: COLORS.positive },
-            { name: '▼ Di Evitament.', val: mean([2, 5, 8], data.cfq || []), fill: COLORS.negative },
-        ];
-
-        // BNSSS (1-7) => Base: 8
-        const bnsssScores = [
-            { name: '▲ Competenza', val: mean([1, 4, 7], data.bnsss || [], [1, 4, 7], 8), fill: COLORS.positive },
-            { name: '▲ Autonomia', val: mean([0, 3, 6], data.bnsss || []), fill: COLORS.positive },
-            { name: '▲ Relazione', val: mean([2, 5, 8], data.bnsss || []), fill: COLORS.positive },
-        ];
-
-        // SEQ (0-4)
-        const seqScores = [
-            { name: '▼ Ansia', val: data.seq ? data.seq[0] : 0, fill: COLORS.negative },
-            { name: '▼ Scoraggiam.', val: data.seq ? data.seq[1] : 0, fill: COLORS.negative },
-            { name: '▲ Eccitazione', val: data.seq ? data.seq[2] : 0, fill: COLORS.positive },
-            { name: '▼ Rabbia', val: data.seq ? data.seq[3] : 0, fill: COLORS.negative },
-            { name: '▲ Felicità', val: data.seq ? data.seq[4] : 0, fill: COLORS.positive },
-        ];
-
-        // MTS (1-5)
-        const mtsTotal = mean([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], data.mts || []);
-        const mtsScores = [
-            { name: '▲ Mental Toughness', val: mtsTotal, fill: COLORS.positive }
-        ];
-
-        // CT (1-5)
-        const ctScores = [
-            { name: '▲ Sfida', val: mean([0, 3, 4, 7, 9], data.ct || []), fill: COLORS.positive },
-            { name: '▼ Minaccia', val: mean([1, 2, 5, 6, 8], data.ct || []), fill: COLORS.negative }
-        ];
-
-        // TEIQue-SF (1-7) => Base: 8
-        const teiqueTotal = mean(Array.from({length: 30}, (_, i) => i), data.teique || [], TEIQUE_REVERSE_ITEMS, 8);
-        const teiqueScores = [
-            { name: '▲ Benessere', val: mean(TEIQUE_SUBSCALES.well_being, data.teique || [], TEIQUE_REVERSE_ITEMS, 8), fill: COLORS.positive },
-            { name: '▲ Autocontrollo', val: mean(TEIQUE_SUBSCALES.self_control, data.teique || [], TEIQUE_REVERSE_ITEMS, 8), fill: COLORS.positive },
-            { name: '▲ Emotività', val: mean(TEIQUE_SUBSCALES.emotionality, data.teique || [], TEIQUE_REVERSE_ITEMS, 8), fill: COLORS.positive },
-            { name: '▲ Socievolezza', val: mean(TEIQUE_SUBSCALES.sociability, data.teique || [], TEIQUE_REVERSE_ITEMS, 8), fill: COLORS.positive },
-            { name: '▲ TEI GLOBALE', val: teiqueTotal, fill: COLORS.pesd }
-        ];
-
-        // MAIA (0-5) => Base: 5
-        const maiaScores = [
-            { name: '▲ Noticing', val: mean(MAIA_SUBSCALES.noticing, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
-            { name: '▲ Not-Distracting', val: mean(MAIA_SUBSCALES.not_distracting, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
-            { name: '▲ Not-Worrying', val: mean(MAIA_SUBSCALES.not_worrying, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
-            { name: '▲ Att. Regulat.', val: mean(MAIA_SUBSCALES.attention_regulation, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
-            { name: '▲ Emot. Aware.', val: mean(MAIA_SUBSCALES.emotional_awareness, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
-            { name: '▲ Self-Regulat.', val: mean(MAIA_SUBSCALES.self_regulation, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
-            { name: '▲ Body Listen.', val: mean(MAIA_SUBSCALES.body_listening, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive },
-            { name: '▲ Trusting', val: mean(MAIA_SUBSCALES.trusting, data.maia || [], MAIA_REVERSE_ITEMS, 5), fill: COLORS.positive }
-        ];
-
-        // PASSION (1-5)
-        const passionScores = [
-            { name: '▲ Armoniosa', val: mean(PASSION_SUBSCALES.harmonious, data.passion || []), fill: COLORS.positive },
-            { name: '▼ Ossessiva', val: mean(PASSION_SUBSCALES.obsessive, data.passion || []), fill: COLORS.negative }
-        ];
-
-        // PESD Calculation
-        const pesdScores = PESD_CATEGORIES.map((cat, i) => {
-            const indices = [i, i + 10, i + 20];
-            const val = mean(indices, data.pesd);
-            return { name: cat, val: val, fill: COLORS.pesd };
-        });
-        
-        // PESD Total
-        const pesdTotal = pesdScores.reduce((acc, curr) => acc + curr.val, 0) / (pesdScores.length || 1);
-        pesdScores.push({ name: 'PESD Totale', val: pesdTotal, fill: '#d8b4fe' });
-
-        return { 
-            ippsScores, tipiScores, misScores, erqScores, ppsScores, cfqScores, 
-            bnsssScores, seqScores, mtsScores, ctScores, pesdScores, 
-            teiqueScores, maiaScores, passionScores 
-        };
-    }, [data]);
+    const results = useMemo(() => computeResults(data), [data]);
+    const previousResults = useMemo(() => previousData ? computeResults(previousData) : null, [previousData]);
 
     const downloadCSV = () => {
         const headers = [
@@ -253,19 +282,19 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data }) => {
 
             {/* Nuovi grafici in griglia moderna e compatta */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {(data.ipps && data.ipps.length > 0) && <MiniChart data={results.ippsScores} title="IPPS-24" domain={[1, 6]} />}
-                {(data.teique && data.teique.length > 0) && <MiniChart data={results.teiqueScores} title="TEIQue-SF" domain={[1, 7]} />}
-                {(data.maia && data.maia.length > 0) && <MiniChart data={results.maiaScores} title="MAIA" domain={[0, 5]} />}
-                {(data.passion && data.passion.length > 0) && <MiniChart data={results.passionScores} title="The Passion Scale" domain={[1, 5]} />}
-                {(data.tipi && data.tipi.length > 0) && <MiniChart data={results.tipiScores} title="TIPI" domain={[1, 7]} />}
-                {(data.mis && data.mis.length > 0) && <MiniChart data={results.misScores} title="MIS" domain={[1, 6]} />}
-                {(data.erq && data.erq.length > 0) && <MiniChart data={results.erqScores} title="ERQ" domain={[1, 7]} />}
-                {(data.pps && data.pps.length > 0) && <MiniChart data={results.ppsScores} title="PPS-S" domain={[1, 7]} />}
-                {(data.cfq && data.cfq.length > 0) && <MiniChart data={results.cfqScores} title="CFQ" domain={[1, 5]} />}
-                {(data.bnsss && data.bnsss.length > 0) && <MiniChart data={results.bnsssScores} title="BNSSS" domain={[1, 7]} />}
-                {(data.seq && data.seq.length > 0) && <MiniChart data={results.seqScores} title="SEQ" domain={[0, 4]} />}
-                {(data.mts && data.mts.length > 0) && <MiniChart data={results.mtsScores} title="MTS" domain={[1, 5]} />}
-                {(data.ct && data.ct.length > 0) && <MiniChart data={results.ctScores} title="CT" domain={[1, 5]} />}
+                {(data.ipps && data.ipps.length > 0) && <MiniChart data={results.ippsScores} title="IPPS-24" domain={[1, 6]} previousData={previousResults?.ippsScores} />}
+                {(data.teique && data.teique.length > 0) && <MiniChart data={results.teiqueScores} title="TEIQue-SF" domain={[1, 7]} previousData={previousResults?.teiqueScores} />}
+                {(data.maia && data.maia.length > 0) && <MiniChart data={results.maiaScores} title="MAIA" domain={[0, 5]} previousData={previousResults?.maiaScores} />}
+                {(data.passion && data.passion.length > 0) && <MiniChart data={results.passionScores} title="The Passion Scale" domain={[1, 5]} previousData={previousResults?.passionScores} />}
+                {(data.tipi && data.tipi.length > 0) && <MiniChart data={results.tipiScores} title="TIPI" domain={[1, 7]} previousData={previousResults?.tipiScores} />}
+                {(data.mis && data.mis.length > 0) && <MiniChart data={results.misScores} title="MIS" domain={[1, 6]} previousData={previousResults?.misScores} />}
+                {(data.erq && data.erq.length > 0) && <MiniChart data={results.erqScores} title="ERQ" domain={[1, 7]} previousData={previousResults?.erqScores} />}
+                {(data.pps && data.pps.length > 0) && <MiniChart data={results.ppsScores} title="PPS-S" domain={[1, 7]} previousData={previousResults?.ppsScores} />}
+                {(data.cfq && data.cfq.length > 0) && <MiniChart data={results.cfqScores} title="CFQ" domain={[1, 5]} previousData={previousResults?.cfqScores} />}
+                {(data.bnsss && data.bnsss.length > 0) && <MiniChart data={results.bnsssScores} title="BNSSS" domain={[1, 7]} previousData={previousResults?.bnsssScores} />}
+                {(data.seq && data.seq.length > 0) && <MiniChart data={results.seqScores} title="SEQ" domain={[0, 4]} previousData={previousResults?.seqScores} />}
+                {(data.mts && data.mts.length > 0) && <MiniChart data={results.mtsScores} title="MTS" domain={[1, 5]} previousData={previousResults?.mtsScores} />}
+                {(data.ct && data.ct.length > 0) && <MiniChart data={results.ctScores} title="CT" domain={[1, 5]} previousData={previousResults?.ctScores} />}
             </div>
 
             {/* PESD Chart */}
@@ -274,13 +303,13 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({ profile, data }) => {
                     <h3 className="text-lg font-bold text-slate-200 mb-4">Profilo PESD (Psicobiosociale)</h3>
                     <div className="h-[400px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart layout="vertical" data={results.pesdScores} margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
+                            <BarChart layout="vertical" data={results.pesdScores} margin={{ top: 5, right: previousResults ? 70 : 30, left: 100, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke={COLORS.grid} />
                             <XAxis type="number" domain={[-4, 4]} ticks={[-4, -2, 0, 2, 4]} stroke={COLORS.text} tick={{fontSize: 10}} />
                             <YAxis dataKey="name" type="category" width={140} tick={{fontSize: 11, fontWeight: 600, fill: COLORS.text}} interval={0} stroke={COLORS.text} />
                             <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                             <ReferenceLine x={0} stroke="#94a3b8" />
-                            <Bar dataKey="val" barSize={16} label={{ position: 'right', fill: '#94a3b8', fontSize: 10, formatter: (v: number) => v.toFixed(2) }}>
+                            <Bar dataKey="val" barSize={16} label={previousResults ? renderCompareLabel(previousResults.pesdScores) : defaultBarLabel}>
                                 {results.pesdScores.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.fill} />
                                 ))}

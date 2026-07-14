@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Search, Lock, Users, RefreshCw, Trash2, Filter, ChevronLeft, LogOut, Loader2, Download, Upload, Link as LinkIcon } from 'lucide-react';
+import { Target, Search, Lock, Users, RefreshCw, Trash2, Filter, ChevronLeft, LogOut, Loader2, Download, Upload, Link as LinkIcon, Columns2, X, CalendarDays } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { AssessmentRecord } from '../types';
+import { AssessmentRecord, QuestionnaireData } from '../types';
 import { ResultsTab } from '../components/ResultsTab';
 import { IppsTab, TipiTab, MisTab, ErqTab, PpsTab, CfqTab, BnsssTab, SeqTab, MtsTab, CtTab, TeiqueTab, MaiaTab, PassionTab } from '../components/Questionnaires';
 import { PesdTab } from '../components/PesdTab';
@@ -11,6 +11,87 @@ import {
     TEIQUE_ITEMS, MAIA_ITEMS, PASSION_ITEMS
 } from '../constants';
 
+// ---- Raggruppamento per atleta (calcolato a runtime, nessuna query nuova) ----
+
+const normalizeName = (name: string): string => name.trim().toLowerCase().replace(/\s+/g, ' ');
+
+const recordTime = (record: AssessmentRecord): number => {
+    const t = record.created_at ? new Date(record.created_at).getTime() : NaN;
+    return isNaN(t) ? 0 : t;
+};
+
+const formatDateIt = (iso: string | undefined): string => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+};
+
+interface AthleteGroup {
+    key: string;
+    displayName: string; // grafia del record più recente
+    records: AssessmentRecord[]; // dal più recente al più vecchio
+}
+
+const buildAthleteGroups = (records: AssessmentRecord[]): AthleteGroup[] => {
+    const map = new Map<string, AssessmentRecord[]>();
+    for (const rec of records) {
+        const key = normalizeName(rec.name);
+        if (!key) continue;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(rec);
+    }
+    const groups: AthleteGroup[] = [];
+    map.forEach((recs, key) => {
+        const sorted = [...recs].sort((a, b) => recordTime(b) - recordTime(a));
+        groups.push({ key, displayName: sorted[0].name, records: sorted });
+    });
+    groups.sort((a, b) => recordTime(b.records[0]) - recordTime(a.records[0]));
+    return groups;
+};
+
+// ---- Helper condivisi fra vista singola e confronto ----
+// Stessa identica logica "un questionario NULL non è compilato" già usata da
+// selectRecord/compiled, generalizzata per poter essere applicata a un
+// record qualsiasi (serve al confronto per capire quali test sono in comune).
+
+const QUESTIONNAIRE_KEYS = ['IPPS', 'TIPI', 'MIS', 'ERQ', 'PPS', 'CFQ', 'BNSSS', 'SEQ', 'MTS', 'CT', 'PESD', 'TEIQUE', 'MAIA', 'PASSION'] as const;
+
+const DB_FIELD_BY_KEY: Record<typeof QUESTIONNAIRE_KEYS[number], keyof QuestionnaireData> = {
+    IPPS: 'ipps', TIPI: 'tipi', MIS: 'mis', ERQ: 'erq', PPS: 'pps', CFQ: 'cfq',
+    BNSSS: 'bnsss', SEQ: 'seq', MTS: 'mts', CT: 'ct', PESD: 'pesd',
+    TEIQUE: 'teique', MAIA: 'maia', PASSION: 'passion',
+};
+
+const hasQuestionnaireData = (arr: number[] | undefined): boolean => !!(arr && arr.length > 0);
+
+const getCompiledMap = (record: AssessmentRecord): Record<string, boolean> => {
+    const map: Record<string, boolean> = {};
+    QUESTIONNAIRE_KEYS.forEach(key => {
+        map[key] = hasQuestionnaireData(record[DB_FIELD_BY_KEY[key]] as number[] | undefined);
+    });
+    return map;
+};
+
+// Costruisce i dati per ResultsTab includendo SOLO i questionari passati in
+// keysToInclude (nel confronto: solo quelli compilati in entrambe le date).
+const buildResultsData = (record: AssessmentRecord | null, keysToInclude: readonly string[]): QuestionnaireData => ({
+    ipps: record && keysToInclude.includes('IPPS') ? record.ipps : [],
+    tipi: record && keysToInclude.includes('TIPI') ? record.tipi : [],
+    mis: record && keysToInclude.includes('MIS') ? record.mis : [],
+    erq: record && keysToInclude.includes('ERQ') ? record.erq : [],
+    pps: record && keysToInclude.includes('PPS') ? record.pps : [],
+    cfq: record && keysToInclude.includes('CFQ') ? record.cfq : [],
+    bnsss: record && keysToInclude.includes('BNSSS') ? record.bnsss : [],
+    seq: record && keysToInclude.includes('SEQ') ? record.seq : [],
+    mts: record && keysToInclude.includes('MTS') ? record.mts : [],
+    ct: record && keysToInclude.includes('CT') ? record.ct : [],
+    pesd: record && keysToInclude.includes('PESD') ? record.pesd : [],
+    teique: record && keysToInclude.includes('TEIQUE') ? record.teique : [],
+    maia: record && keysToInclude.includes('MAIA') ? record.maia : [],
+    passion: record && keysToInclude.includes('PASSION') ? record.passion : [],
+});
+
 export const DashboardPage = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isCheckingSession, setIsCheckingSession] = useState(true);
@@ -19,12 +100,21 @@ export const DashboardPage = () => {
     const [loginError, setLoginError] = useState<string | null>(null);
     const [records, setRecords] = useState<AssessmentRecord[]>([]);
     const [filteredRecords, setFilteredRecords] = useState<AssessmentRecord[]>([]);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [disciplineFilter, setDisciplineFilter] = useState('Tutte');
     const [activeTab, setActiveTab] = useState(9); // Default to Results
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Selezione: quale atleta (gruppo) e quale specifica somministrazione sono aperti.
+    // 'link-generator' è un valore sentinella, come prima.
+    const [selectedAthleteKey, setSelectedAthleteKey] = useState<string | null>(null);
+    const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+
+    // Confronto fra due somministrazioni dello stesso atleta (solo su richiesta)
+    const [compareMode, setCompareMode] = useState(false);
+    const [compareIdA, setCompareIdA] = useState<string | null>(null);
+    const [compareIdB, setCompareIdB] = useState<string | null>(null);
 
     // Selected data state
     const [currentProfile, setCurrentProfile] = useState({ name: '', discipline: '', yearsOfPractice: 0, email: '', phone: '' });
@@ -56,7 +146,7 @@ export const DashboardPage = () => {
                 .from('assessments')
                 .select('*')
                 .order('created_at', { ascending: false });
-            
+
             if (error) {
                 console.error("Supabase Error:", error);
                 if (error.message && (error.message.includes("fetch") || error.message.includes("network"))) {
@@ -68,6 +158,7 @@ export const DashboardPage = () => {
                 const mapped: AssessmentRecord[] = data.map(d => ({
                     id: d.id,
                     date: new Date(d.created_at).toLocaleDateString(),
+                    created_at: d.created_at,
                     name: d.athlete_name,
                     discipline: d.discipline,
                     yearsOfPractice: d.years_of_practice,
@@ -139,7 +230,7 @@ export const DashboardPage = () => {
             } catch (err) {
                 alert("File di backup non valido o corrotto.");
             }
-            if (event.target) event.target.value = ''; 
+            if (event.target) event.target.value = '';
         };
         reader.readAsText(file);
     };
@@ -156,7 +247,7 @@ export const DashboardPage = () => {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setPassword('');
-        setSelectedId(null);
+        clearSelection();
     };
 
     // Ripristina la sessione al caricamento e resta sincronizzato con login/logout
@@ -216,7 +307,7 @@ export const DashboardPage = () => {
             PASSION: hasData(record.passion),
         });
 
-        setSelectedId(record.id);
+        setSelectedRecordId(record.id);
         setCurrentProfile({
             name: record.name,
             discipline: record.discipline,
@@ -242,10 +333,30 @@ export const DashboardPage = () => {
         setIsMobileListVisible(false);
     };
 
+    // Apre un atleta dalla lista raggruppata: si apre di default la somministrazione più recente.
+    const selectAthlete = (group: AthleteGroup) => {
+        setSelectedAthleteKey(group.key);
+        setCompareMode(false);
+        selectRecord(group.records[0]);
+    };
+
     const clearSelection = () => {
-        setSelectedId(null);
+        setSelectedAthleteKey(null);
+        setSelectedRecordId(null);
+        setCompareMode(false);
         setIsMobileListVisible(true);
     };
+
+    const openCompare = (group: AthleteGroup) => {
+        if (group.records.length < 2) return;
+        const oldest = group.records[group.records.length - 1];
+        const newest = group.records[0];
+        setCompareIdA(oldest.id);
+        setCompareIdB(newest.id);
+        setCompareMode(true);
+    };
+
+    const closeCompare = () => setCompareMode(false);
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -254,9 +365,26 @@ export const DashboardPage = () => {
             if (error) {
                 alert("Errore eliminazione");
             } else {
+                const deletedRecord = records.find(r => r.id === id);
                 const updated = records.filter(r => r.id !== id);
                 setRecords(updated);
-                if (selectedId === id) clearSelection();
+
+                if (compareIdA === id || compareIdB === id) {
+                    setCompareMode(false);
+                }
+
+                if (selectedRecordId === id) {
+                    const remaining = deletedRecord
+                        ? updated
+                            .filter(r => normalizeName(r.name) === normalizeName(deletedRecord.name))
+                            .sort((a, b) => recordTime(b) - recordTime(a))
+                        : [];
+                    if (remaining.length > 0) {
+                        selectRecord(remaining[0]);
+                    } else {
+                        clearSelection();
+                    }
+                }
             }
         }
     };
@@ -338,6 +466,35 @@ export const DashboardPage = () => {
         { id: 14, label: 'Passion Scale',key: 'PASSION' },
     ];
 
+    // Atleti raggruppati dalla lista filtrata (nome normalizzato: minuscolo,
+    // trim, spazi multipli collassati — così "Emanuele Scipioni" e
+    // "emanuele scipioni" finiscono nello stesso gruppo).
+    const athleteGroups = buildAthleteGroups(filteredRecords);
+
+    const selectedGroup = selectedAthleteKey && selectedAthleteKey !== 'link-generator'
+        ? athleteGroups.find(g => g.key === selectedAthleteKey) ?? null
+        : null;
+
+    const currentRecord = selectedGroup?.records.find(r => r.id === selectedRecordId) ?? null;
+
+    // Risoluzione T1 (più vecchia) / T2 (più recente) fra le due date scelte nel confronto
+    const compareRecordA = selectedGroup?.records.find(r => r.id === compareIdA) ?? null;
+    const compareRecordB = selectedGroup?.records.find(r => r.id === compareIdB) ?? null;
+    const [t1Record, t2Record]: [AssessmentRecord | null, AssessmentRecord | null] =
+        (compareRecordA && compareRecordB)
+            ? (recordTime(compareRecordA) <= recordTime(compareRecordB)
+                ? [compareRecordA, compareRecordB]
+                : [compareRecordB, compareRecordA])
+            : [null, null];
+
+    const compiledT1 = t1Record ? getCompiledMap(t1Record) : {};
+    const compiledT2 = t2Record ? getCompiledMap(t2Record) : {};
+    const commonKeys = QUESTIONNAIRE_KEYS.filter(k => compiledT1[k] && compiledT2[k]);
+
+    const toProfile = (rec: AssessmentRecord) => ({
+        name: rec.name, discipline: rec.discipline, yearsOfPractice: rec.yearsOfPractice, email: rec.email, phone: rec.phone
+    });
+
     return (
         <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-slate-950 font-sans text-slate-200">
             {/* Left Panel: List of Assessments */}
@@ -348,11 +505,11 @@ export const DashboardPage = () => {
                             <Users size={18} className="text-cyan-400" /> Database Atleti
                         </h2>
                         <div className="flex gap-2">
-                             <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={handleImport} 
-                                className="hidden" 
+                             <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleImport}
+                                className="hidden"
                                 accept=".json"
                             />
                             <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-800 text-slate-400 hover:text-green-400 rounded-full transition" title="Importa Backup">
@@ -369,10 +526,10 @@ export const DashboardPage = () => {
                             </button>
                         </div>
                     </div>
-                    
-                    <button 
-                        onClick={() => { setSelectedId('link-generator'); setIsMobileListVisible(false); }}
-                        className={`w-full mb-4 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-bold transition-all border ${selectedId === 'link-generator' ? 'bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-900/50' : 'bg-slate-950 border-slate-700 text-cyan-400 hover:bg-slate-800'}`}
+
+                    <button
+                        onClick={() => { setSelectedAthleteKey('link-generator'); setIsMobileListVisible(false); }}
+                        className={`w-full mb-4 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-bold transition-all border ${selectedAthleteKey === 'link-generator' ? 'bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-900/50' : 'bg-slate-950 border-slate-700 text-cyan-400 hover:bg-slate-800'}`}
                     >
                         <LinkIcon size={16} /> Genera Link Assessment
                     </button>
@@ -380,9 +537,9 @@ export const DashboardPage = () => {
                     <div className="space-y-3">
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
-                            <input 
-                                type="text" 
-                                placeholder="Cerca atleta..." 
+                            <input
+                                type="text"
+                                placeholder="Cerca atleta..."
                                 className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none placeholder-slate-600"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -390,7 +547,7 @@ export const DashboardPage = () => {
                         </div>
                         <div className="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1">
                             <Filter size={14} className="text-slate-500" />
-                            <select 
+                            <select
                                 className="w-full py-1 text-sm bg-transparent outline-none cursor-pointer text-slate-300"
                                 value={disciplineFilter}
                                 onChange={(e) => setDisciplineFilter(e.target.value)}
@@ -401,14 +558,14 @@ export const DashboardPage = () => {
                         </div>
                     </div>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center h-40 text-slate-500">
                             <Loader2 className="w-8 h-8 animate-spin mb-2 text-cyan-500" />
                             <span className="text-xs">Caricamento dati...</span>
                         </div>
-                    ) : filteredRecords.length === 0 ? (
+                    ) : athleteGroups.length === 0 ? (
                         <div className="p-8 text-center text-slate-500 text-sm">
                             <div className="bg-slate-800/50 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
                                 <Users size={20} className="opacity-50" />
@@ -417,46 +574,61 @@ export const DashboardPage = () => {
                         </div>
                     ) : (
                         <ul>
-                            {filteredRecords.map(rec => (
-                                <li 
-                                    key={rec.id}
-                                    onClick={() => selectRecord(rec)}
-                                    className={`p-4 border-b border-slate-800 cursor-pointer hover:bg-slate-800/50 transition-colors relative group ${selectedId === rec.id ? 'bg-slate-800 border-l-4 border-cyan-500' : ''}`}
-                                >
-                                    <div className="font-bold text-slate-200">{rec.name}</div>
-                                    <div className="text-xs text-slate-500 flex flex-col gap-1 mt-1">
-                                        <div className="flex justify-between">
-                                            <span>{rec.discipline}</span>
-                                            <span>{rec.date}</span>
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 mt-1 truncate">
-                                            Test: {[
-                                                rec.ipps?.length   ? 'IPPS'    : null,
-                                                rec.tipi?.length   ? 'TIPI'    : null,
-                                                rec.mis?.length    ? 'MIS'     : null,
-                                                rec.erq?.length    ? 'ERQ'     : null,
-                                                rec.pps?.length    ? 'PPS'     : null,
-                                                rec.cfq?.length    ? 'CFQ'     : null,
-                                                rec.bnsss?.length  ? 'BNSSS'   : null,
-                                                rec.seq?.length    ? 'SEQ'     : null,
-                                                rec.mts?.length    ? 'MTS'     : null,
-                                                rec.ct?.length     ? 'CT'      : null,
-                                                rec.pesd?.length   ? 'PESD'    : null,
-                                                rec.teique?.length ? 'TEIQue'  : null,
-                                                rec.maia?.length   ? 'MAIA'    : null,
-                                                rec.passion?.length? 'Passion' : null,
-                                            ].filter(Boolean).join(', ') || 'Nessuno'}
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={(e) => handleDelete(rec.id, e)}
-                                        className="absolute right-2 top-3 p-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Elimina record"
+                            {athleteGroups.map(group => {
+                                const latest = group.records[0];
+                                const isSelected = selectedAthleteKey === group.key;
+                                return (
+                                    <li
+                                        key={group.key}
+                                        onClick={() => selectAthlete(group)}
+                                        className={`p-4 border-b border-slate-800 cursor-pointer hover:bg-slate-800/50 transition-colors relative group ${isSelected ? 'bg-slate-800 border-l-4 border-cyan-500' : ''}`}
                                     >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </li>
-                            ))}
+                                        <div className="flex items-center gap-2 pr-6">
+                                            <div className="font-bold text-slate-200 truncate">{group.displayName}</div>
+                                            {group.records.length > 1 && (
+                                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-cyan-900/40 text-cyan-400 border border-cyan-800/50 shrink-0">
+                                                    {group.records.length} somministrazioni
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-slate-500 flex flex-col gap-1 mt-1">
+                                            <div className="flex justify-between items-center">
+                                                <span>{latest.discipline}</span>
+                                                <span className="text-slate-300 font-semibold">{formatDateIt(latest.created_at)}</span>
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 mt-1 truncate">
+                                                Test: {[
+                                                    latest.ipps?.length   ? 'IPPS'    : null,
+                                                    latest.tipi?.length   ? 'TIPI'    : null,
+                                                    latest.mis?.length    ? 'MIS'     : null,
+                                                    latest.erq?.length    ? 'ERQ'     : null,
+                                                    latest.pps?.length    ? 'PPS'     : null,
+                                                    latest.cfq?.length    ? 'CFQ'     : null,
+                                                    latest.bnsss?.length  ? 'BNSSS'   : null,
+                                                    latest.seq?.length    ? 'SEQ'     : null,
+                                                    latest.mts?.length    ? 'MTS'     : null,
+                                                    latest.ct?.length     ? 'CT'      : null,
+                                                    latest.pesd?.length   ? 'PESD'    : null,
+                                                    latest.teique?.length ? 'TEIQue'  : null,
+                                                    latest.maia?.length   ? 'MAIA'    : null,
+                                                    latest.passion?.length? 'Passion' : null,
+                                                ].filter(Boolean).join(', ') || 'Nessuno'}
+                                            </div>
+                                        </div>
+                                        {/* Eliminazione rapida solo per atleti con una sola somministrazione:
+                                            per chi ne ha più d'una si elimina la singola data dal selettore in vista dettaglio. */}
+                                        {group.records.length === 1 && (
+                                            <button
+                                                onClick={(e) => handleDelete(latest.id, e)}
+                                                className="absolute right-2 top-3 p-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="Elimina record"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
+                                    </li>
+                                );
+                            })}
                         </ul>
                     )}
                 </div>
@@ -464,7 +636,7 @@ export const DashboardPage = () => {
 
             {/* Main Area: Detailed View */}
             <main className={`flex-1 flex flex-col overflow-hidden bg-slate-950 absolute md:relative w-full h-full transition-transform duration-300 ${!isMobileListVisible ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
-                {selectedId === 'link-generator' ? (
+                {selectedAthleteKey === 'link-generator' ? (
                     <>
                         <div className="md:hidden bg-slate-900 border-b border-slate-800 p-4 flex items-center gap-3 text-white">
                             <button onClick={clearSelection} className="p-2 -ml-2 hover:bg-slate-800 rounded-full">
@@ -474,7 +646,7 @@ export const DashboardPage = () => {
                         </div>
                         <LinkGenerator />
                     </>
-                ) : selectedId ? (
+                ) : selectedGroup ? (
                     <>
                         {/* Mobile Header for Detail View */}
                         <div className="md:hidden bg-slate-900 border-b border-slate-800 p-4 flex items-center gap-3 text-white">
@@ -484,59 +656,186 @@ export const DashboardPage = () => {
                             <span className="font-bold truncate">{currentProfile.name}</span>
                         </div>
 
-                         {/* Tabs Navigation — M7: compiled tabs bright, non-compiled visibly dimmed */}
-                        <div className="bg-slate-900 border-b border-slate-800 p-4">
-                             <div className="flex flex-nowrap overflow-x-auto gap-2 text-sm font-medium pb-1 scrollbar-none">
-                                {TABS.map(tab => {
-                                    const isCompiled = tab.key === null || compiled[tab.key];
-                                    const isActive = activeTab === tab.id;
-                                    return (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => setActiveTab(tab.id)}
-                                            className={`py-2 px-3 rounded-lg border transition-colors shrink-0 text-xs ${
-                                                isActive
-                                                    ? 'border-cyan-500 bg-cyan-900/20 text-cyan-400'
-                                                    : isCompiled
-                                                        ? 'border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'
-                                                        : 'border-slate-800 text-slate-600 hover:bg-slate-800/40 line-through decoration-slate-700'
-                                            }`}
-                                        >
-                                            {tab.label}
-                                        </button>
-                                    );
-                                })}
-                             </div>
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                            <div className="max-w-6xl mx-auto">
-                            {/* m4: show single message if nothing was compiled */}
-                            {activeTab !== 10 && nothingCompiled && (
-                                <div className="flex flex-col items-center justify-center py-16 text-slate-600 gap-3">
-                                    <span className="text-4xl">—</span>
-                                    <p className="text-sm italic">Nessun dato disponibile per questo atleta.</p>
-                                </div>
-                            )}
-                                {activeTab === 10 && <ResultsTab profile={currentProfile} data={{ ipps: compiled.IPPS ? ippsData : [], tipi: compiled.TIPI ? tipiData : [], mis: compiled.MIS ? misData : [], erq: compiled.ERQ ? erqData : [], pps: compiled.PPS ? ppsData : [], cfq: compiled.CFQ ? cfqData : [], bnsss: compiled.BNSSS ? bnsssData : [], seq: compiled.SEQ ? seqData : [], mts: compiled.MTS ? mtsData : [], ct: compiled.CT ? ctData : [], pesd: compiled.PESD ? pesdData : [], teique: compiled.TEIQUE ? teiqueData : [], maia: compiled.MAIA ? maiaData : [], passion: compiled.PASSION ? passionData : [] }} />}
-                                {/* Read-only views — show placeholder if not compiled (skip if nothingCompiled shows the global message) */}
-                                {!nothingCompiled && activeTab === 0  && (compiled.IPPS    ? <div className="pointer-events-none opacity-80"><IppsTab    data={ippsData}    onChange={()=>{}} /></div> : <NotCompiled label="IPPS-24" />)}
-                                {!nothingCompiled && activeTab === 1  && (compiled.TIPI    ? <div className="pointer-events-none opacity-80"><TipiTab    data={tipiData}    onChange={()=>{}} /></div> : <NotCompiled label="TIPI" />)}
-                                {!nothingCompiled && activeTab === 2  && (compiled.MIS     ? <div className="pointer-events-none opacity-80"><MisTab     data={misData}     onChange={()=>{}} /></div> : <NotCompiled label="MIS" />)}
-                                {!nothingCompiled && activeTab === 3  && (compiled.ERQ     ? <div className="pointer-events-none opacity-80"><ErqTab     data={erqData}     onChange={()=>{}} /></div> : <NotCompiled label="ERQ" />)}
-                                {!nothingCompiled && activeTab === 4  && (compiled.PPS     ? <div className="pointer-events-none opacity-80"><PpsTab     data={ppsData}     onChange={()=>{}} /></div> : <NotCompiled label="PPS-S" />)}
-                                {!nothingCompiled && activeTab === 5  && (compiled.CFQ     ? <div className="pointer-events-none opacity-80"><CfqTab     data={cfqData}     onChange={()=>{}} /></div> : <NotCompiled label="CFQ" />)}
-                                {!nothingCompiled && activeTab === 6  && (compiled.BNSSS   ? <div className="pointer-events-none opacity-80"><BnsssTab   data={bnsssData}   onChange={()=>{}} /></div> : <NotCompiled label="BNSSS" />)}
-                                {!nothingCompiled && activeTab === 7  && (compiled.SEQ     ? <div className="pointer-events-none opacity-80"><SeqTab     data={seqData}     onChange={()=>{}} /></div> : <NotCompiled label="SEQ" />)}
-                                {!nothingCompiled && activeTab === 8  && (compiled.MTS     ? <div className="pointer-events-none opacity-80"><MtsTab     data={mtsData}     onChange={()=>{}} /></div> : <NotCompiled label="MTS" />)}
-                                {!nothingCompiled && activeTab === 9  && (compiled.CT      ? <div className="pointer-events-none opacity-80"><CtTab      data={ctData}      onChange={()=>{}} /></div> : <NotCompiled label="Sfida & Minaccia" />)}
-                                {!nothingCompiled && activeTab === 11 && (compiled.PESD    ? <div className="pointer-events-none opacity-80"><PesdTab    data={pesdData}    onChange={()=>{}} /></div> : <NotCompiled label="PESD-Sport" />)}
-                                {!nothingCompiled && activeTab === 12 && (compiled.TEIQUE  ? <div className="pointer-events-none opacity-80"><TeiqueTab  data={teiqueData}  onChange={()=>{}} /></div> : <NotCompiled label="TEIQue-SF" />)}
-                                {!nothingCompiled && activeTab === 13 && (compiled.MAIA    ? <div className="pointer-events-none opacity-80"><MaiaTab    data={maiaData}    onChange={()=>{}} /></div> : <NotCompiled label="MAIA" />)}
-                                {!nothingCompiled && activeTab === 14 && (compiled.PASSION ? <div className="pointer-events-none opacity-80"><PassionTab data={passionData} onChange={()=>{}} /></div> : <NotCompiled label="Passion Scale" />)}
+                        {/* Data della somministrazione in evidenza (non più un dettaglio grigio in lista) */}
+                        {!compareMode && currentRecord && (
+                            <div className="bg-slate-900/60 border-b border-slate-800 px-4 md:px-8 py-2.5 flex items-center gap-2">
+                                <CalendarDays size={16} className="text-cyan-400 shrink-0" />
+                                <span className="text-sm text-slate-300">
+                                    Somministrazione del <strong className="text-white font-bold">{formatDateIt(currentRecord.created_at)}</strong>
+                                </span>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Selettore date + Confronta — solo se l'atleta ha più di una somministrazione */}
+                        {!compareMode && selectedGroup.records.length > 1 && (
+                            <div className="bg-slate-900 border-b border-slate-800 px-4 md:px-8 py-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs text-slate-500 font-bold uppercase tracking-wide">Somministrazioni</span>
+                                    <button
+                                        onClick={() => openCompare(selectedGroup)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-purple-600/50 bg-purple-900/20 text-purple-300 hover:bg-purple-900/40 transition-colors shrink-0"
+                                    >
+                                        <Columns2 size={14} /> Confronta
+                                    </button>
+                                </div>
+                                <div className="flex flex-nowrap overflow-x-auto gap-2 scrollbar-none pb-1">
+                                    {selectedGroup.records.map(rec => (
+                                        <div key={rec.id} className="relative group/date shrink-0">
+                                            <button
+                                                onClick={() => selectRecord(rec)}
+                                                className={`px-3 py-1.5 pr-7 rounded-lg text-xs font-bold border transition-colors ${
+                                                    selectedRecordId === rec.id
+                                                        ? 'border-cyan-500 bg-cyan-900/20 text-cyan-400'
+                                                        : 'border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800'
+                                                }`}
+                                            >
+                                                {formatDateIt(rec.created_at)}
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDelete(rec.id, e)}
+                                                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-600 hover:text-red-500 opacity-0 group-hover/date:opacity-100 transition-opacity"
+                                                title="Elimina questa somministrazione"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {!compareMode && (
+                            <>
+                                {/* Tabs Navigation — M7: compiled tabs bright, non-compiled visibly dimmed */}
+                                <div className="bg-slate-900 border-b border-slate-800 p-4">
+                                     <div className="flex flex-nowrap overflow-x-auto gap-2 text-sm font-medium pb-1 scrollbar-none">
+                                        {TABS.map(tab => {
+                                            const isCompiled = tab.key === null || compiled[tab.key];
+                                            const isActive = activeTab === tab.id;
+                                            return (
+                                                <button
+                                                    key={tab.id}
+                                                    onClick={() => setActiveTab(tab.id)}
+                                                    className={`py-2 px-3 rounded-lg border transition-colors shrink-0 text-xs ${
+                                                        isActive
+                                                            ? 'border-cyan-500 bg-cyan-900/20 text-cyan-400'
+                                                            : isCompiled
+                                                                ? 'border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'
+                                                                : 'border-slate-800 text-slate-600 hover:bg-slate-800/40 line-through decoration-slate-700'
+                                                    }`}
+                                                >
+                                                    {tab.label}
+                                                </button>
+                                            );
+                                        })}
+                                     </div>
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                                    <div className="max-w-6xl mx-auto">
+                                    {/* m4: show single message if nothing was compiled */}
+                                    {activeTab !== 10 && nothingCompiled && (
+                                        <div className="flex flex-col items-center justify-center py-16 text-slate-600 gap-3">
+                                            <span className="text-4xl">—</span>
+                                            <p className="text-sm italic">Nessun dato disponibile per questo atleta.</p>
+                                        </div>
+                                    )}
+                                        {activeTab === 10 && <ResultsTab profile={currentProfile} data={{ ipps: compiled.IPPS ? ippsData : [], tipi: compiled.TIPI ? tipiData : [], mis: compiled.MIS ? misData : [], erq: compiled.ERQ ? erqData : [], pps: compiled.PPS ? ppsData : [], cfq: compiled.CFQ ? cfqData : [], bnsss: compiled.BNSSS ? bnsssData : [], seq: compiled.SEQ ? seqData : [], mts: compiled.MTS ? mtsData : [], ct: compiled.CT ? ctData : [], pesd: compiled.PESD ? pesdData : [], teique: compiled.TEIQUE ? teiqueData : [], maia: compiled.MAIA ? maiaData : [], passion: compiled.PASSION ? passionData : [] }} />}
+                                        {/* Read-only views — show placeholder if not compiled (skip if nothingCompiled shows the global message) */}
+                                        {!nothingCompiled && activeTab === 0  && (compiled.IPPS    ? <div className="pointer-events-none opacity-80"><IppsTab    data={ippsData}    onChange={()=>{}} /></div> : <NotCompiled label="IPPS-24" />)}
+                                        {!nothingCompiled && activeTab === 1  && (compiled.TIPI    ? <div className="pointer-events-none opacity-80"><TipiTab    data={tipiData}    onChange={()=>{}} /></div> : <NotCompiled label="TIPI" />)}
+                                        {!nothingCompiled && activeTab === 2  && (compiled.MIS     ? <div className="pointer-events-none opacity-80"><MisTab     data={misData}     onChange={()=>{}} /></div> : <NotCompiled label="MIS" />)}
+                                        {!nothingCompiled && activeTab === 3  && (compiled.ERQ     ? <div className="pointer-events-none opacity-80"><ErqTab     data={erqData}     onChange={()=>{}} /></div> : <NotCompiled label="ERQ" />)}
+                                        {!nothingCompiled && activeTab === 4  && (compiled.PPS     ? <div className="pointer-events-none opacity-80"><PpsTab     data={ppsData}     onChange={()=>{}} /></div> : <NotCompiled label="PPS-S" />)}
+                                        {!nothingCompiled && activeTab === 5  && (compiled.CFQ     ? <div className="pointer-events-none opacity-80"><CfqTab     data={cfqData}     onChange={()=>{}} /></div> : <NotCompiled label="CFQ" />)}
+                                        {!nothingCompiled && activeTab === 6  && (compiled.BNSSS   ? <div className="pointer-events-none opacity-80"><BnsssTab   data={bnsssData}   onChange={()=>{}} /></div> : <NotCompiled label="BNSSS" />)}
+                                        {!nothingCompiled && activeTab === 7  && (compiled.SEQ     ? <div className="pointer-events-none opacity-80"><SeqTab     data={seqData}     onChange={()=>{}} /></div> : <NotCompiled label="SEQ" />)}
+                                        {!nothingCompiled && activeTab === 8  && (compiled.MTS     ? <div className="pointer-events-none opacity-80"><MtsTab     data={mtsData}     onChange={()=>{}} /></div> : <NotCompiled label="MTS" />)}
+                                        {!nothingCompiled && activeTab === 9  && (compiled.CT      ? <div className="pointer-events-none opacity-80"><CtTab      data={ctData}      onChange={()=>{}} /></div> : <NotCompiled label="Sfida & Minaccia" />)}
+                                        {!nothingCompiled && activeTab === 11 && (compiled.PESD    ? <div className="pointer-events-none opacity-80"><PesdTab    data={pesdData}    onChange={()=>{}} /></div> : <NotCompiled label="PESD-Sport" />)}
+                                        {!nothingCompiled && activeTab === 12 && (compiled.TEIQUE  ? <div className="pointer-events-none opacity-80"><TeiqueTab  data={teiqueData}  onChange={()=>{}} /></div> : <NotCompiled label="TEIQue-SF" />)}
+                                        {!nothingCompiled && activeTab === 13 && (compiled.MAIA    ? <div className="pointer-events-none opacity-80"><MaiaTab    data={maiaData}    onChange={()=>{}} /></div> : <NotCompiled label="MAIA" />)}
+                                        {!nothingCompiled && activeTab === 14 && (compiled.PASSION ? <div className="pointer-events-none opacity-80"><PassionTab data={passionData} onChange={()=>{}} /></div> : <NotCompiled label="Passion Scale" />)}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Confronto fra due somministrazioni — solo su richiesta */}
+                        {compareMode && (
+                            <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                                <div className="max-w-[1600px] mx-auto space-y-6">
+                                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-4 justify-between">
+                                        <div className="flex items-center gap-2 text-purple-300 font-bold">
+                                            <Columns2 size={18} /> Confronto somministrazioni — {selectedGroup.displayName}
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <label className="text-xs text-slate-500 font-bold uppercase flex items-center gap-2">
+                                                T1
+                                                <select
+                                                    className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-white outline-none focus:ring-1 focus:ring-cyan-500 normal-case font-normal"
+                                                    value={compareIdA ?? ''}
+                                                    onChange={(e) => setCompareIdA(e.target.value)}
+                                                >
+                                                    {selectedGroup.records.map(rec => (
+                                                        <option key={rec.id} value={rec.id}>{formatDateIt(rec.created_at)}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <label className="text-xs text-slate-500 font-bold uppercase flex items-center gap-2">
+                                                T2
+                                                <select
+                                                    className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-white outline-none focus:ring-1 focus:ring-cyan-500 normal-case font-normal"
+                                                    value={compareIdB ?? ''}
+                                                    onChange={(e) => setCompareIdB(e.target.value)}
+                                                >
+                                                    {selectedGroup.records.map(rec => (
+                                                        <option key={rec.id} value={rec.id}>{formatDateIt(rec.created_at)}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <button
+                                                onClick={closeCompare}
+                                                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                                            >
+                                                <X size={14} /> Chiudi confronto
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {commonKeys.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-16 text-slate-600 gap-3">
+                                            <span className="text-4xl">—</span>
+                                            <p className="text-sm italic">Nessun questionario compilato in entrambe le somministrazioni selezionate.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                            <div>
+                                                <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-300">
+                                                    <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs">T1</span>
+                                                    {formatDateIt(t1Record?.created_at)}
+                                                </div>
+                                                {t1Record && <ResultsTab profile={toProfile(t1Record)} data={buildResultsData(t1Record, commonKeys)} />}
+                                            </div>
+                                            <div>
+                                                <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-300">
+                                                    <span className="px-2 py-0.5 rounded bg-cyan-900/40 border border-cyan-700 text-cyan-300 text-xs">T2</span>
+                                                    {formatDateIt(t2Record?.created_at)}
+                                                </div>
+                                                {t2Record && (
+                                                    <ResultsTab
+                                                        profile={toProfile(t2Record)}
+                                                        data={buildResultsData(t2Record, commonKeys)}
+                                                        previousData={t1Record ? buildResultsData(t1Record, commonKeys) : undefined}
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-600 p-6 text-center">
