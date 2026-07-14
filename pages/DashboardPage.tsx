@@ -486,7 +486,7 @@ export const DashboardPage = () => {
                                     <p className="text-sm italic">Nessun dato disponibile per questo atleta.</p>
                                 </div>
                             )}
-                                {activeTab === 10 && <ResultsTab profile={currentProfile} data={{ ipps: ippsData, tipi: tipiData, mis: misData, erq: erqData, pps: ppsData, cfq: cfqData, bnsss: bnsssData, seq: seqData, mts: mtsData, ct: ctData, pesd: pesdData, teique: teiqueData, maia: maiaData, passion: passionData }} />}
+                                {activeTab === 10 && <ResultsTab profile={currentProfile} data={{ ipps: compiled.IPPS ? ippsData : [], tipi: compiled.TIPI ? tipiData : [], mis: compiled.MIS ? misData : [], erq: compiled.ERQ ? erqData : [], pps: compiled.PPS ? ppsData : [], cfq: compiled.CFQ ? cfqData : [], bnsss: compiled.BNSSS ? bnsssData : [], seq: compiled.SEQ ? seqData : [], mts: compiled.MTS ? mtsData : [], ct: compiled.CT ? ctData : [], pesd: compiled.PESD ? pesdData : [], teique: compiled.TEIQUE ? teiqueData : [], maia: compiled.MAIA ? maiaData : [], passion: compiled.PASSION ? passionData : [] }} />}
                                 {/* Read-only views — show placeholder if not compiled (skip if nothingCompiled shows the global message) */}
                                 {!nothingCompiled && activeTab === 0  && (compiled.IPPS    ? <div className="pointer-events-none opacity-80"><IppsTab    data={ippsData}    onChange={()=>{}} /></div> : <NotCompiled label="IPPS-24" />)}
                                 {!nothingCompiled && activeTab === 1  && (compiled.TIPI    ? <div className="pointer-events-none opacity-80"><TipiTab    data={tipiData}    onChange={()=>{}} /></div> : <NotCompiled label="TIPI" />)}
