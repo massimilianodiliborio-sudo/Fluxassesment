@@ -11,6 +11,61 @@ import {
 import { AthleteProfile } from '../types';
 import { supabase } from '../lib/supabase';
 
+// Bozza salvata in localStorage: risposte + anagrafica, mai il consenso
+// (va riespresso attivamente ad ogni invio, non ereditato da una bozza).
+interface AthleteDraft {
+  profile: AthleteProfile;
+  ipps: (number | null)[];
+  tipi: (number | null)[];
+  mis: (number | null)[];
+  erq: (number | null)[];
+  pps: (number | null)[];
+  cfq: (number | null)[];
+  bnsss: (number | null)[];
+  seq: (number | null)[];
+  mts: (number | null)[];
+  ct: (number | null)[];
+  pesd: (number | null)[];
+  teique: (number | null)[];
+  maia: (number | null)[];
+  passion: (number | null)[];
+  savedAt: string;
+}
+
+const DRAFT_ITEM_LENGTHS: Record<string, number> = {
+  ipps: IPPS_ITEMS.length, tipi: TIPI_ITEMS.length, mis: MIS_ITEMS.length, erq: ERQ_ITEMS.length,
+  pps: PPS_ITEMS.length, cfq: CFQ_ITEMS.length, bnsss: BNSSS_ITEMS.length, seq: SEQ_ITEMS.length,
+  mts: MTS_ITEMS.length, ct: CT_ITEMS.length, pesd: PESD_ITEMS.length, teique: TEIQUE_ITEMS.length,
+  maia: MAIA_ITEMS.length, passion: PASSION_ITEMS.length,
+};
+
+const isValidAnswerArray = (val: unknown, expectedLen: number): val is (number | null)[] =>
+  Array.isArray(val) && val.length === expectedLen && val.every(v => v === null || typeof v === 'number');
+
+const isValidDraftProfile = (val: unknown): val is AthleteProfile => {
+  if (!val || typeof val !== 'object') return false;
+  const p = val as Record<string, unknown>;
+  return typeof p.name === 'string' && typeof p.discipline === 'string' &&
+    typeof p.yearsOfPractice === 'number' && typeof p.email === 'string' && typeof p.phone === 'string';
+};
+
+// Se la forma non è quella attesa (JSON corrotto, lunghezze diverse, ecc.)
+// la bozza viene scartata in silenzio: non si tenta di ripararla.
+const parseDraft = (raw: string): AthleteDraft | null => {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (typeof parsed.savedAt !== 'string') return null;
+    if (!isValidDraftProfile(parsed.profile)) return null;
+    for (const key of Object.keys(DRAFT_ITEM_LENGTHS)) {
+      if (!isValidAnswerArray(parsed[key], DRAFT_ITEM_LENGTHS[key])) return null;
+    }
+    return parsed as AthleteDraft;
+  } catch {
+    return null;
+  }
+};
+
 export const AthletePage = () => {
   const [profile, setProfile] = useState<AthleteProfile>({
     name: '',
@@ -41,15 +96,22 @@ export const AthletePage = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [consentGiven, setConsentGiven] = useState(false);
 
+  // Bozza autosalvata: mostrata come banner finché l'atleta non decide se riprenderla
+  const [pendingDraft, setPendingDraft] = useState<AthleteDraft | null>(null);
+  // true dopo la prima modifica reale — evita scritture su localStorage a vuoto
+  const hasInteractedRef = React.useRef(false);
+
   // State per gestire l'apertura del pannello dati su mobile — M6: chiuso di default
   const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
 
   const handleProfileChange = (field: keyof AthleteProfile, value: string | number) => {
+    hasInteractedRef.current = true;
     setProfile(prev => ({ ...prev, [field]: value }));
     if (errorMsg) setErrorMsg(null);
   };
 
   const updateQuestionnaire = (setter: React.Dispatch<React.SetStateAction<number[]>>, index: number, val: number) => {
+    hasInteractedRef.current = true;
     setter(prev => {
       const copy = [...prev];
       copy[index] = val;
@@ -61,6 +123,13 @@ export const AthletePage = () => {
   const searchParams = new window.URLSearchParams(window.location.hash.split('?')[1] || '');
   const requestedTests = (searchParams.get('q')?.split(',') || []).filter(t => t.trim() !== '');
   const filtersActive = requestedTests.length > 0 && requestedTests[0] !== 'none';
+
+  // Una bozza per link: la chiave incorpora il set di questionari richiesti da ?q=
+  const draftKey = `flux_draft_${
+    requestedTests.length > 0
+      ? [...requestedTests].sort().join(',').replace(/[^a-zA-Z0-9_,]/g, '_')
+      : 'full'
+  }`;
 
   const isTestRequested = (testKey: string) => !filtersActive || requestedTests.includes(testKey);
 
@@ -97,6 +166,77 @@ export const AthletePage = () => {
         setActiveTab(tabs[0].id);
     }
   }, [tabs, activeTab]);
+
+  // Al montaggio: cerca una bozza per questo link. Non la applica mai in automatico
+  // (lo stesso tablet può passare da un atleta all'altro) — la propone via banner.
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const draft = parseDraft(raw);
+        if (draft) setPendingDraft(draft);
+      }
+    } catch {
+      // localStorage non disponibile (es. Safari privato): nessuna bozza da proporre
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Autosalvataggio con debounce ~500ms. Non scrive prima della prima interazione
+  // reale, e non scrive finché una bozza trovata al mount non è stata risolta
+  // (altrimenti la si sovrascriverebbe con lo state vuoto prima della scelta dell'atleta).
+  React.useEffect(() => {
+    if (!hasInteractedRef.current || pendingDraft) return;
+
+    const timer = setTimeout(() => {
+      try {
+        const draft: AthleteDraft = {
+          profile,
+          ipps: ippsData, tipi: tipiData, mis: misData, erq: erqData,
+          pps: ppsData, cfq: cfqData, bnsss: bnsssData, seq: seqData,
+          mts: mtsData, ct: ctData, pesd: pesdData, teique: teiqueData,
+          maia: maiaData, passion: passionData,
+          savedAt: new Date().toISOString()
+        };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch {
+        // localStorage non disponibile (es. Safari privato): niente autosave, niente crash
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [profile, ippsData, tipiData, misData, erqData, ppsData, cfqData, bnsssData, seqData,
+      mtsData, ctData, pesdData, teiqueData, maiaData, passionData, pendingDraft, draftKey]);
+
+  const resumeDraft = () => {
+    if (!pendingDraft) return;
+    setProfile(pendingDraft.profile);
+    setIppsData(pendingDraft.ipps);
+    setTipiData(pendingDraft.tipi);
+    setMisData(pendingDraft.mis);
+    setErqData(pendingDraft.erq);
+    setPpsData(pendingDraft.pps);
+    setCfqData(pendingDraft.cfq);
+    setBnsssData(pendingDraft.bnsss);
+    setSeqData(pendingDraft.seq);
+    setMtsData(pendingDraft.mts);
+    setCtData(pendingDraft.ct);
+    setPesdData(pendingDraft.pesd);
+    setTeiqueData(pendingDraft.teique);
+    setMaiaData(pendingDraft.maia);
+    setPassionData(pendingDraft.passion);
+    hasInteractedRef.current = true;
+    setPendingDraft(null);
+  };
+
+  const discardDraft = () => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // localStorage non disponibile: nulla da rimuovere
+    }
+    setPendingDraft(null);
+  };
 
   const validate = () => {
     if (!profile.name.trim()) return "Il campo 'Nome e Cognome' è obbligatorio.";
@@ -180,6 +320,11 @@ export const AthletePage = () => {
           return;
       }
 
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // localStorage non disponibile: nessun problema, il submit è comunque riuscito
+      }
       setSubmitted(true);
     } catch (err) {
       console.error("Unexpected Error:", err);
@@ -325,7 +470,33 @@ export const AthletePage = () => {
         </div>
 
         <main className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
-            
+
+            {/* Banner bozza trovata — richiede una scelta esplicita, mai ripristino silenzioso */}
+            {pendingDraft && (
+                <div className="bg-cyan-500/10 border-b border-cyan-500/20 text-cyan-100 px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-3 backdrop-blur-sm">
+                    <div className="flex items-center gap-3 flex-1">
+                        <Info size={20} className="shrink-0 text-cyan-400" />
+                        <span className="text-xs sm:text-sm font-medium">
+                            Trovata una compilazione non inviata del {new Date(pendingDraft.savedAt).toLocaleString()}. Vuoi riprenderla?
+                        </span>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                        <button
+                            onClick={resumeDraft}
+                            className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold uppercase rounded-lg transition-colors"
+                        >
+                            Riprendi
+                        </button>
+                        <button
+                            onClick={discardDraft}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase rounded-lg transition-colors border border-slate-700"
+                        >
+                            Ricomincia da capo
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Validation Banner */}
             {errorMsg && (
                 <div className="bg-red-500/10 border-b border-red-500/20 text-red-400 px-6 py-3 flex items-center gap-3 backdrop-blur-sm animate-pulse">
