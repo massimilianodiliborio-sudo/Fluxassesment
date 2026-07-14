@@ -420,14 +420,21 @@ export const AthletePage = () => {
     <div className="flex flex-col h-screen overflow-hidden bg-slate-950 font-sans text-slate-200">
         {/* Header: logo + indicatore di step, uguale su mobile e desktop */}
         <header className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2 font-black text-white">
+            <div className="flex flex-col mb-3">
+                {/* Pulsazione lenta e sobria (solo opacità, ~3s, ease-in-out):
+                    motion-safe: la disattiva del tutto se l'utente ha
+                    richiesto prefers-reduced-motion, senza bisogno di
+                    gestirlo a mano. */}
+                <div
+                    className="flex items-center gap-2 font-black text-white motion-safe:animate-pulse"
+                    style={{ animationDuration: '3s' }}
+                >
                     <span className="bg-yellow-400 p-1 rounded text-slate-900"><Target size={16} fill="currentColor" /></span>
                     FLUX Assessment
                 </div>
-                <a href="#/dashboard" className="text-xs text-slate-700 hover:text-cyan-500 flex items-center gap-1 font-medium transition-colors cursor-pointer">
-                    <Lock size={12} /> <span className="hidden sm:inline">Area Psicologo</span>
-                </a>
+                <span className="text-[10px] text-slate-500 mt-0.5">
+                    Creato da Dr. Massimiliano Di Liborio e Prof. Claudio Robazza
+                </span>
             </div>
             <StepIndicator current={step} />
         </header>
